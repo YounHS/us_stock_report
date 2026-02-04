@@ -1,0 +1,674 @@
+"""매수 신호 종합 판별"""
+
+from typing import Dict, List, Optional
+from dataclasses import dataclass, field
+import logging
+
+from config.settings import settings
+from .technical import TechnicalAnalyzer
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class BuySignal:
+    """매수 신호 정보"""
+    ticker: str
+    close: float
+    change_pct: float
+    signal_type: str  # "rsi", "macd", "sigma", "combined"
+    signal_strength: int  # 1-3 (높을수록 강함)
+    details: Dict
+
+
+@dataclass
+class ScoreBreakdown:
+    """점수 구성 상세"""
+    rsi_score: int = 0
+    volume_score: int = 0
+    adx_score: int = 0
+    macd_score: int = 0
+    bollinger_score: int = 0
+    relative_strength_score: int = 0
+    week52_score: int = 0
+
+    @property
+    def total(self) -> int:
+        return (
+            self.rsi_score
+            + self.volume_score
+            + self.adx_score
+            + self.macd_score
+            + self.bollinger_score
+            + self.relative_strength_score
+            + self.week52_score
+        )
+
+
+@dataclass
+class EnhancedRecommendation:
+    """향상된 추천 정보"""
+    ticker: str
+    score: int  # 0-100
+    confidence: str  # "High" (>=70), "Medium" (50-69)
+    close: float
+    change_pct: float
+    target_price: float
+    stop_loss: float
+    risk_reward_ratio: float
+    bullish_factors: List[str]
+    warning_factors: List[str]
+    score_breakdown: ScoreBreakdown
+    holding_period: str
+    source: str
+    # Technical indicator summary
+    rsi: Optional[float] = None
+    adx: Optional[float] = None
+    volume_ratio: Optional[float] = None
+    relative_strength_20d: Optional[float] = None
+    week52_position: Optional[float] = None
+    disclaimer: str = "본 추천은 기술적 분석에 기반한 것으로, 투자 결정은 본인의 판단하에 이루어져야 합니다."
+
+
+class SignalDetector:
+    """매수 신호 감지기"""
+
+    def __init__(self, analysis_results: Dict[str, Dict]):
+        """
+        Args:
+            analysis_results: TechnicalAnalyzer.analyze_batch() 결과
+        """
+        self.analysis_results = analysis_results
+
+    def detect_rsi_oversold(self) -> List[BuySignal]:
+        """RSI 과매도 종목 감지"""
+        signals = []
+
+        for ticker, analysis in self.analysis_results.items():
+            rsi = analysis.get("rsi")
+            if rsi and rsi.is_oversold:
+                signals.append(BuySignal(
+                    ticker=ticker,
+                    close=analysis.get("close", 0),
+                    change_pct=analysis.get("change_pct", 0),
+                    signal_type="rsi",
+                    signal_strength=self._rsi_strength(rsi.value),
+                    details={
+                        "rsi": rsi.value,
+                        "threshold": settings.analysis.rsi_oversold,
+                    }
+                ))
+
+        # RSI 낮은 순으로 정렬
+        signals.sort(key=lambda x: x.details["rsi"])
+        return signals
+
+    def detect_macd_cross(self) -> List[BuySignal]:
+        """MACD 골든크로스 종목 감지"""
+        signals = []
+
+        for ticker, analysis in self.analysis_results.items():
+            macd = analysis.get("macd")
+            if macd and macd.is_bullish_cross:
+                signals.append(BuySignal(
+                    ticker=ticker,
+                    close=analysis.get("close", 0),
+                    change_pct=analysis.get("change_pct", 0),
+                    signal_type="macd",
+                    signal_strength=2,  # 골든크로스는 중간 강도
+                    details={
+                        "macd_line": macd.macd_line,
+                        "signal_line": macd.signal_line,
+                        "histogram": macd.histogram,
+                    }
+                ))
+
+        # 히스토그램 큰 순으로 정렬
+        signals.sort(key=lambda x: x.details["histogram"], reverse=True)
+        return signals
+
+    def detect_sigma_reversion(self) -> List[BuySignal]:
+        """1시그마 근접 (평균 회귀 후보) 종목 감지"""
+        signals = []
+
+        for ticker, analysis in self.analysis_results.items():
+            bollinger = analysis.get("bollinger")
+            if bollinger and bollinger.is_near_lower_sigma:
+                signals.append(BuySignal(
+                    ticker=ticker,
+                    close=analysis.get("close", 0),
+                    change_pct=analysis.get("change_pct", 0),
+                    signal_type="sigma",
+                    signal_strength=self._sigma_strength(bollinger.z_score),
+                    details={
+                        "z_score": bollinger.z_score,
+                        "sma": bollinger.sma,
+                        "lower_band": bollinger.lower_band,
+                        "distance_to_sma_pct": round(
+                            ((bollinger.sma - analysis.get("close", 0)) / analysis.get("close", 1)) * 100, 2
+                        ),
+                    }
+                ))
+
+        # Z-score 낮은 순으로 정렬 (하단에 가까울수록 먼저)
+        signals.sort(key=lambda x: x.details["z_score"])
+        return signals
+
+    def detect_combined_signals(self) -> List[BuySignal]:
+        """복합 신호 (RSI + MACD 또는 RSI + Sigma) 종목 감지"""
+        signals = []
+
+        for ticker, analysis in self.analysis_results.items():
+            rsi = analysis.get("rsi")
+            macd = analysis.get("macd")
+            bollinger = analysis.get("bollinger")
+
+            score = 0
+            details = {}
+
+            # RSI 과매도 체크
+            if rsi and rsi.is_oversold:
+                score += 1
+                details["rsi"] = rsi.value
+
+            # MACD 골든크로스 체크
+            if macd and macd.is_bullish_cross:
+                score += 1
+                details["macd_cross"] = True
+                details["histogram"] = macd.histogram
+
+            # 1시그마 근접 체크
+            if bollinger and bollinger.is_near_lower_sigma:
+                score += 1
+                details["z_score"] = bollinger.z_score
+
+            # 2개 이상 신호가 겹치면 복합 신호로 등록
+            if score >= 2:
+                signals.append(BuySignal(
+                    ticker=ticker,
+                    close=analysis.get("close", 0),
+                    change_pct=analysis.get("change_pct", 0),
+                    signal_type="combined",
+                    signal_strength=score,
+                    details=details,
+                ))
+
+        # 강도 높은 순으로 정렬
+        signals.sort(key=lambda x: x.signal_strength, reverse=True)
+        return signals
+
+    def get_all_signals(self) -> Dict[str, List[BuySignal]]:
+        """모든 유형의 매수 신호 반환"""
+        return {
+            "rsi_oversold": self.detect_rsi_oversold(),
+            "macd_golden_cross": self.detect_macd_cross(),
+            "sigma_reversion": self.detect_sigma_reversion(),
+            "combined": self.detect_combined_signals(),
+        }
+
+    def _rsi_strength(self, rsi_value: float) -> int:
+        """RSI 값에 따른 신호 강도"""
+        if rsi_value < 20:
+            return 3  # 극심한 과매도
+        elif rsi_value < 25:
+            return 2
+        else:
+            return 1
+
+    def _sigma_strength(self, z_score: float) -> int:
+        """Z-Score에 따른 신호 강도"""
+        if z_score < -1.5:
+            return 3  # 2시그마 근접
+        elif z_score < -1.1:
+            return 2
+        else:
+            return 1
+
+    def get_top_recommendation(self) -> Dict:
+        """
+        최종 추천 종목 선정
+
+        선정 기준:
+        1. 복합 신호 종목 우선 (2개 이상 조건 충족)
+        2. 없으면 RSI 과매도 중 가장 낮은 종목
+        3. 추천 근거와 보유 기간 제시
+
+        Returns:
+            추천 종목 정보 딕셔너리
+        """
+        signals = self.get_all_signals()
+
+        recommendation = None
+        reasons = []
+        holding_period = ""
+
+        # 1순위: 복합 신호 종목
+        if signals["combined"]:
+            top = signals["combined"][0]
+            recommendation = top
+
+            if top.details.get("rsi"):
+                reasons.append(f"RSI {top.details['rsi']:.1f} (과매도 구간)")
+            if top.details.get("macd_cross"):
+                reasons.append("MACD 골든크로스 발생")
+            if top.details.get("z_score"):
+                reasons.append(f"볼린저밴드 하단 근접 (Z-score: {top.details['z_score']:.2f})")
+
+            holding_period = "2-4주 (복수 신호로 신뢰도 높음)"
+            source = "복합 기술적 분석 신호"
+
+        # 2순위: RSI 과매도 중 가장 낮은 종목
+        elif signals["rsi_oversold"]:
+            top = signals["rsi_oversold"][0]
+            recommendation = top
+
+            reasons.append(f"RSI {top.details['rsi']:.1f}로 극심한 과매도 상태")
+            reasons.append("단기 반등 가능성 높음")
+
+            if top.details['rsi'] < 20:
+                holding_period = "1-2주 (극단적 과매도, 빠른 반등 기대)"
+            else:
+                holding_period = "2-3주 (과매도 회복 대기)"
+            source = "RSI 과매도 신호"
+
+        # 3순위: MACD 골든크로스
+        elif signals["macd_golden_cross"]:
+            top = signals["macd_golden_cross"][0]
+            recommendation = top
+
+            reasons.append("MACD 골든크로스 발생")
+            reasons.append(f"히스토그램: {top.details['histogram']:.4f}")
+
+            holding_period = "3-4주 (추세 전환 확인 필요)"
+            source = "MACD 골든크로스 신호"
+
+        # 4순위: 1시그마 근접
+        elif signals["sigma_reversion"]:
+            top = signals["sigma_reversion"][0]
+            recommendation = top
+
+            reasons.append(f"볼린저밴드 하단 근접 (Z-score: {top.details['z_score']:.2f})")
+            reasons.append(f"20일 이동평균 대비 {top.details['distance_to_sma_pct']}% 상승 여력")
+
+            holding_period = "1-2주 (평균 회귀 전략)"
+            source = "볼린저밴드 평균회귀 신호"
+
+        if recommendation:
+            # 매도 목표가 계산 (20일 SMA 기준)
+            analysis = self.analysis_results.get(recommendation.ticker, {})
+            bollinger = analysis.get("bollinger")
+            rsi = analysis.get("rsi")
+            macd = analysis.get("macd")
+            adx = analysis.get("adx")
+            volume = analysis.get("volume")
+            rs = analysis.get("relative_strength")
+            week52 = analysis.get("week52")
+            atr = analysis.get("atr")
+
+            if bollinger:
+                target_price = bollinger.sma  # 20일 SMA
+                target_return = round(((target_price - recommendation.close) / recommendation.close) * 100, 2)
+            else:
+                target_price = round(recommendation.close * 1.05, 2)  # 기본 5% 상승
+                target_return = 5.0
+
+            # 손절가 계산 (ATR 기반 또는 기본 5%)
+            if atr:
+                stop_loss = atr.stop_loss
+            else:
+                stop_loss = round(recommendation.close * 0.95, 2)
+
+            return {
+                "ticker": recommendation.ticker,
+                "close": recommendation.close,
+                "change_pct": recommendation.change_pct,
+                "signal_strength": recommendation.signal_strength,
+                "reasons": reasons,
+                "holding_period": holding_period,
+                "source": source,
+                "target_price": round(target_price, 2),
+                "target_return": target_return,
+                "disclaimer": "본 추천은 기술적 분석에 기반한 것으로, 투자 결정은 본인의 판단하에 이루어져야 합니다.",
+                # 기술적 지표 추가
+                "rsi": round(rsi.value, 1) if rsi else None,
+                "adx": round(adx.adx, 1) if adx else None,
+                "volume_ratio": round(volume.volume_ratio, 2) if volume else None,
+                "relative_strength_20d": round(rs.rs_20d, 1) if rs else None,
+                "week52_position": round(week52.current_position_pct, 1) if week52 else None,
+                "stop_loss": stop_loss,
+                "risk_reward_ratio": round((target_price - recommendation.close) / (recommendation.close - stop_loss), 2) if recommendation.close > stop_loss else None,
+                # MACD 정보
+                "macd_histogram": round(macd.histogram, 4) if macd else None,
+                "macd_signal": "골든크로스" if macd and macd.is_bullish_cross else None,
+                # 볼린저밴드 정보
+                "bollinger_z_score": round(bollinger.z_score, 2) if bollinger else None,
+                "bollinger_sma": round(bollinger.sma, 2) if bollinger else None,
+                # ATR 정보
+                "atr_value": round(atr.atr, 2) if atr else None,
+                "atr_pct": round(atr.atr / recommendation.close * 100, 2) if atr and recommendation.close else None,
+            }
+
+        return None
+
+    # ========================
+    # Enhanced Scoring System
+    # ========================
+
+    def _calculate_rsi_score(self, analysis: Dict) -> int:
+        """RSI 점수 계산 (최대 weight_rsi점)"""
+        rsi = analysis.get("rsi")
+        if not rsi:
+            return 0
+
+        weight = settings.analysis.weight_rsi
+        if rsi.is_oversold:
+            if rsi.value < 20:
+                return weight  # 극심한 과매도
+            elif rsi.value < 25:
+                return int(weight * 0.8)
+            else:
+                return int(weight * 0.6)
+        return 0
+
+    def _calculate_volume_score(self, analysis: Dict) -> int:
+        """거래량 점수 계산 (최대 weight_volume점)"""
+        volume = analysis.get("volume")
+        rsi = analysis.get("rsi")
+
+        if not volume:
+            return 0
+
+        weight = settings.analysis.weight_volume
+
+        # 과매도 + 거래량 급증 = 바닥 신호 확인
+        if rsi and rsi.is_oversold and volume.is_volume_spike:
+            if volume.volume_ratio >= 2.0:
+                return weight
+            else:
+                return int(weight * 0.8)
+
+        # 과매도 중 거래량 감소 = 약한 신호 (페널티)
+        if rsi and rsi.is_oversold and volume.volume_ratio < 0.7:
+            return -int(weight * 0.5)
+
+        return 0
+
+    def _calculate_adx_score(self, analysis: Dict) -> int:
+        """ADX 점수 계산 (최대 weight_adx점 또는 페널티)"""
+        adx = analysis.get("adx")
+        if not adx:
+            return 0
+
+        weight = settings.analysis.weight_adx
+
+        # 약한 추세에서 평균회귀 유효 (점수 부여)
+        if adx.trend_strength == "weak":
+            return weight
+        elif adx.trend_strength == "moderate" and adx.trend_direction != "bearish":
+            return int(weight * 0.5)
+
+        # 강한 하락 추세 = falling knife 위험 (페널티)
+        if adx.trend_strength == "strong" and adx.trend_direction == "bearish":
+            return -int(weight * 1.3)  # 20점 페널티
+
+        return 0
+
+    def _calculate_macd_score(self, analysis: Dict) -> int:
+        """MACD 점수 계산 (최대 weight_macd점)"""
+        macd = analysis.get("macd")
+        if not macd:
+            return 0
+
+        weight = settings.analysis.weight_macd
+
+        if macd.is_bullish_cross:
+            # 골든크로스 발생
+            if macd.histogram > 0:
+                return weight
+            else:
+                return int(weight * 0.7)
+
+        # 히스토그램 상승 전환 중 (아직 크로스 전이지만 반등 신호)
+        if macd.histogram < 0 and macd.histogram > macd.signal_line * 0.5:
+            return int(weight * 0.3)
+
+        return 0
+
+    def _calculate_bollinger_score(self, analysis: Dict) -> int:
+        """볼린저밴드 점수 계산 (최대 weight_bollinger점)"""
+        bollinger = analysis.get("bollinger")
+        if not bollinger:
+            return 0
+
+        weight = settings.analysis.weight_bollinger
+
+        if bollinger.is_near_lower_sigma:
+            # z-score에 따른 점수 차등
+            if bollinger.z_score <= -1.5:
+                return weight  # 2시그마 근접
+            elif bollinger.z_score <= -1.2:
+                return int(weight * 0.8)
+            else:
+                return int(weight * 0.6)
+
+        return 0
+
+    def _calculate_relative_strength_score(self, analysis: Dict) -> int:
+        """상대강도 점수 계산 (최대 weight_relative_strength점)"""
+        rs = analysis.get("relative_strength")
+        if not rs:
+            return 0
+
+        weight = settings.analysis.weight_relative_strength
+
+        if rs.is_outperforming:
+            # 시장 대비 아웃퍼폼
+            if rs.rs_20d > 5:  # 20일 기준 5% 이상 아웃퍼폼
+                return weight
+            elif rs.rs_20d > 0:
+                return int(weight * 0.7)
+
+        return 0
+
+    def _calculate_week52_score(self, analysis: Dict) -> int:
+        """52주 위치 점수 계산 (최대 weight_52week점)"""
+        week52 = analysis.get("week52")
+        if not week52:
+            return 0
+
+        weight = settings.analysis.weight_52week
+
+        if week52.is_near_low:
+            # 52주 저점 근처
+            if week52.current_position_pct <= 5:
+                return weight  # 최저점 근처
+            else:
+                return int(weight * 0.7)
+
+        return 0
+
+    def _should_filter_out(self, analysis: Dict, score_breakdown: ScoreBreakdown) -> tuple[bool, str]:
+        """
+        필터링 조건 체크
+
+        Returns:
+            (should_filter: bool, reason: str)
+        """
+        adx = analysis.get("adx")
+        volume = analysis.get("volume")
+        rsi = analysis.get("rsi")
+        atr = analysis.get("atr")
+
+        # 1. ADX > 25 + 하락추세 (falling knife)
+        if adx and adx.adx > settings.analysis.adx_weak_trend_threshold:
+            if adx.trend_direction == "bearish":
+                return True, "강한 하락 추세 (falling knife 위험)"
+
+        # 2. 거래량 감소 중 과매도 (약한 신호)
+        if volume and rsi and rsi.is_oversold:
+            if volume.volume_ratio < 0.7:
+                return True, "과매도 상태이나 거래량 감소 중"
+
+        # 3. R:R < 2:1 (리스크 대비 수익 불리)
+        if atr and atr.risk_reward_ratio < settings.analysis.min_risk_reward_ratio:
+            return True, f"리스크 대비 수익률 불리 (R:R {atr.risk_reward_ratio:.1f}:1)"
+
+        return False, ""
+
+    def get_enhanced_recommendation(self) -> Optional[EnhancedRecommendation]:
+        """
+        가중치 점수 시스템 기반 추천 종목 선정
+
+        Returns:
+            EnhancedRecommendation or None
+        """
+        candidates = []
+
+        for ticker, analysis in self.analysis_results.items():
+            # 기본 지표가 없으면 스킵
+            if not analysis.get("rsi") and not analysis.get("bollinger"):
+                continue
+
+            # 점수 계산
+            score_breakdown = ScoreBreakdown(
+                rsi_score=self._calculate_rsi_score(analysis),
+                volume_score=self._calculate_volume_score(analysis),
+                adx_score=self._calculate_adx_score(analysis),
+                macd_score=self._calculate_macd_score(analysis),
+                bollinger_score=self._calculate_bollinger_score(analysis),
+                relative_strength_score=self._calculate_relative_strength_score(analysis),
+                week52_score=self._calculate_week52_score(analysis),
+            )
+
+            total_score = score_breakdown.total
+
+            # 최소 점수 미달 시 스킵
+            if total_score < settings.analysis.min_recommendation_score:
+                continue
+
+            # 필터링 조건 체크
+            should_filter, filter_reason = self._should_filter_out(analysis, score_breakdown)
+            if should_filter:
+                logger.debug(f"{ticker} 필터링됨: {filter_reason}")
+                continue
+
+            candidates.append((ticker, total_score, score_breakdown, analysis))
+
+        if not candidates:
+            return None
+
+        # 점수 기준 정렬
+        candidates.sort(key=lambda x: x[1], reverse=True)
+        best_ticker, best_score, best_breakdown, best_analysis = candidates[0]
+
+        # 신뢰도 결정
+        if best_score >= 70:
+            confidence = "High"
+        else:
+            confidence = "Medium"
+
+        # 매수 근거 및 주의사항 수집
+        bullish_factors = []
+        warning_factors = []
+
+        rsi = best_analysis.get("rsi")
+        macd = best_analysis.get("macd")
+        bollinger = best_analysis.get("bollinger")
+        volume = best_analysis.get("volume")
+        adx = best_analysis.get("adx")
+        rs = best_analysis.get("relative_strength")
+        week52 = best_analysis.get("week52")
+        atr = best_analysis.get("atr")
+
+        # Bullish factors
+        if rsi and rsi.is_oversold:
+            bullish_factors.append(f"RSI {rsi.value:.1f} (과매도 구간)")
+
+        if macd and macd.is_bullish_cross:
+            bullish_factors.append("MACD 골든크로스 발생")
+
+        if bollinger and bollinger.is_near_lower_sigma:
+            bullish_factors.append(f"볼린저밴드 하단 근접 (Z-score: {bollinger.z_score:.2f})")
+
+        if volume and volume.is_volume_spike:
+            bullish_factors.append(f"거래량 급증 (평균 대비 {volume.volume_ratio:.1f}배)")
+
+        if rs and rs.is_outperforming:
+            bullish_factors.append(f"SPY 대비 20일 아웃퍼폼 (+{rs.rs_20d:.1f}%)")
+
+        if week52 and week52.is_near_low:
+            bullish_factors.append(f"52주 저점 근처 ({week52.current_position_pct:.1f}% 위치)")
+
+        if adx and adx.trend_strength == "weak":
+            bullish_factors.append("약한 추세 (평균회귀 유효)")
+
+        # Warning factors
+        if adx and adx.trend_direction == "bearish":
+            warning_factors.append("하락 추세 지속 중")
+
+        if volume and volume.volume_ratio < 1.0:
+            warning_factors.append("거래량 평균 이하")
+
+        if rs and not rs.is_outperforming:
+            warning_factors.append("시장 대비 언더퍼폼")
+
+        if week52 and week52.current_position_pct > 50:
+            warning_factors.append("52주 중간 이상 위치")
+
+        # 목표가 및 손절가
+        close_price = best_analysis.get("close", 0)
+
+        if atr:
+            target_price = atr.target_price
+            stop_loss = atr.stop_loss
+            risk_reward_ratio = atr.risk_reward_ratio
+        elif bollinger:
+            target_price = bollinger.sma
+            stop_loss = round(close_price * 0.95, 2)  # 기본 5% 손절
+            risk_reward_ratio = round((target_price - close_price) / (close_price - stop_loss), 2) if close_price > stop_loss else 0
+        else:
+            target_price = round(close_price * 1.05, 2)
+            stop_loss = round(close_price * 0.95, 2)
+            risk_reward_ratio = 1.0
+
+        # 보유 기간 결정
+        if best_score >= 70:
+            holding_period = "2-4주 (복수 신호로 신뢰도 높음)"
+        elif rsi and rsi.value < 20:
+            holding_period = "1-2주 (극단적 과매도, 빠른 반등 기대)"
+        else:
+            holding_period = "2-3주 (평균회귀 전략)"
+
+        # 출처 결정
+        primary_factors = []
+        if best_breakdown.rsi_score > 0:
+            primary_factors.append("RSI")
+        if best_breakdown.macd_score > 0:
+            primary_factors.append("MACD")
+        if best_breakdown.bollinger_score > 0:
+            primary_factors.append("볼린저밴드")
+        if best_breakdown.volume_score > 0:
+            primary_factors.append("거래량")
+
+        source = f"가중치 점수 시스템 ({', '.join(primary_factors[:3])})"
+
+        return EnhancedRecommendation(
+            ticker=best_ticker,
+            score=best_score,
+            confidence=confidence,
+            close=close_price,
+            change_pct=best_analysis.get("change_pct", 0),
+            target_price=target_price,
+            stop_loss=stop_loss,
+            risk_reward_ratio=risk_reward_ratio,
+            bullish_factors=bullish_factors,
+            warning_factors=warning_factors,
+            score_breakdown=best_breakdown,
+            holding_period=holding_period,
+            source=source,
+            rsi=rsi.value if rsi else None,
+            adx=adx.adx if adx else None,
+            volume_ratio=volume.volume_ratio if volume else None,
+            relative_strength_20d=rs.rs_20d if rs else None,
+            week52_position=week52.current_position_pct if week52 else None,
+        )
