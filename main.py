@@ -103,6 +103,12 @@ def main(dry_run: bool = False, test_email: bool = False):
         if enhanced_rec:
             logger.info(f"   오늘의 추천: {enhanced_rec.ticker} (${enhanced_rec.close}, 점수: {enhanced_rec.score}, 신뢰도: {enhanced_rec.confidence})")
             # EnhancedRecommendation을 dict로 변환
+            # 템플릿에서 필요한 추가 지표를 analysis_results에서 추출
+            rec_analysis = analysis_results.get(enhanced_rec.ticker, {})
+            rec_macd = rec_analysis.get("macd")
+            rec_bollinger = rec_analysis.get("bollinger")
+            rec_atr = rec_analysis.get("atr")
+
             recommendation = {
                 "ticker": enhanced_rec.ticker,
                 "score": enhanced_rec.score,
@@ -110,6 +116,7 @@ def main(dry_run: bool = False, test_email: bool = False):
                 "close": enhanced_rec.close,
                 "change_pct": enhanced_rec.change_pct,
                 "target_price": enhanced_rec.target_price,
+                "target_return": round(((enhanced_rec.target_price - enhanced_rec.close) / enhanced_rec.close) * 100, 2) if enhanced_rec.close else None,
                 "stop_loss": enhanced_rec.stop_loss,
                 "risk_reward_ratio": enhanced_rec.risk_reward_ratio,
                 "bullish_factors": enhanced_rec.bullish_factors,
@@ -127,9 +134,13 @@ def main(dry_run: bool = False, test_email: bool = False):
                 "source": enhanced_rec.source,
                 "rsi": enhanced_rec.rsi,
                 "adx": enhanced_rec.adx,
+                "macd_signal": "골든크로스" if rec_macd and rec_macd.is_bullish_cross else None,
+                "bollinger_z_score": round(rec_bollinger.z_score, 2) if rec_bollinger else None,
                 "volume_ratio": enhanced_rec.volume_ratio,
+                "atr_pct": round(rec_atr.atr / enhanced_rec.close * 100, 2) if rec_atr and enhanced_rec.close else None,
                 "relative_strength_20d": enhanced_rec.relative_strength_20d,
                 "week52_position": enhanced_rec.week52_position,
+                "reasons": enhanced_rec.bullish_factors,
                 "disclaimer": enhanced_rec.disclaimer,
             }
         else:
