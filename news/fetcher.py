@@ -3,6 +3,7 @@
 import yfinance as yf
 from typing import List, Dict
 from datetime import datetime
+from zoneinfo import ZoneInfo
 import logging
 
 from config.settings import settings
@@ -160,7 +161,7 @@ class NewsFetcher:
             "market_news": self.fetch_market_news(),
             "hot_stocks_news": [],
             "sector_highlights": [],
-            "fetched_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "fetched_at": datetime.now(ZoneInfo(settings.general.timezone)).strftime("%Y-%m-%d %H:%M:%S"),
         }
 
         if top_movers:

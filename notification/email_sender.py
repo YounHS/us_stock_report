@@ -5,6 +5,7 @@ import logging
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime
+from zoneinfo import ZoneInfo
 from typing import List, Optional
 
 from config.settings import settings
@@ -47,7 +48,8 @@ class EmailSender:
             return False
 
         if not subject:
-            date_str = datetime.now().strftime("%Y-%m-%d")
+            tz = ZoneInfo(settings.general.timezone)
+            date_str = datetime.now(tz).strftime("%Y-%m-%d")
             subject = f"{self.subject_prefix} {date_str} 미국 주식 시장 일일 리포트"
 
         msg = MIMEMultipart("alternative")

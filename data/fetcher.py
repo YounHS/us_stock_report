@@ -4,6 +4,7 @@ import yfinance as yf
 import pandas as pd
 from typing import Dict, List, Optional
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 import logging
 
 from config.settings import settings
@@ -39,8 +40,9 @@ class StockDataFetcher:
 
         logger.info(f"{len(tickers)}개 종목 데이터 수집 시작...")
 
-        # 기간 설정
-        end_date = datetime.now()
+        # 기간 설정 (타임존 적용)
+        tz = ZoneInfo(settings.general.timezone)
+        end_date = datetime.now(tz)
         start_date = end_date - timedelta(days=self.lookback_days)
 
         try:

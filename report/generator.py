@@ -4,6 +4,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
 from dataclasses import asdict
+from zoneinfo import ZoneInfo
 import logging
 
 from jinja2 import Environment, FileSystemLoader
@@ -84,9 +85,11 @@ class ReportGenerator:
                 for s in signal_list
             ]
 
+        tz = ZoneInfo(settings.general.timezone)
+        now = datetime.now(tz)
         context = {
-            "report_date": report_date or datetime.now().strftime("%Y-%m-%d"),
-            "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "report_date": report_date or now.strftime("%Y-%m-%d"),
+            "generated_at": now.strftime("%Y-%m-%d %H:%M:%S"),
             "market_summary": market_summary,
             "market_breadth": market_breadth,
             "sector_performance": sector_perf_dicts,
@@ -112,7 +115,8 @@ class ReportGenerator:
             저장된 파일 경로
         """
         if filepath is None:
-            date_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+            tz = ZoneInfo(settings.general.timezone)
+            date_str = datetime.now(tz).strftime("%Y%m%d_%H%M%S")
             filepath = f"report_{date_str}.html"
 
         with open(filepath, "w", encoding="utf-8") as f:

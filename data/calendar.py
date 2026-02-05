@@ -3,11 +3,20 @@
 import yfinance as yf
 import requests
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 from typing import Dict, List, Optional
 import logging
 from bs4 import BeautifulSoup
 
+from config.settings import settings
+
 logger = logging.getLogger(__name__)
+
+
+def _get_now():
+    """타임존이 적용된 현재 시각 반환"""
+    tz = ZoneInfo(settings.general.timezone)
+    return datetime.now(tz)
 
 
 class EconomicCalendar:
@@ -79,7 +88,7 @@ class EconomicCalendar:
 
                     if event_elem:
                         events.append({
-                            "date": date_elem[:10] if date_elem else datetime.now().strftime("%Y-%m-%d"),
+                            "date": date_elem[:10] if date_elem else _get_now().strftime("%Y-%m-%d"),
                             "time": time_elem.text.strip() if time_elem else "",
                             "event": event_elem.text.strip(),
                             "importance": "high" if importance >= 3 else "medium",
@@ -95,7 +104,7 @@ class EconomicCalendar:
 
     def _get_default_events(self) -> List[Dict]:
         """기본 경제 이벤트 (스크래핑 실패 시)"""
-        today = datetime.now()
+        today = _get_now()
         events = []
 
         # 이번 주의 주요 이벤트 생성
@@ -127,7 +136,7 @@ class EconomicCalendar:
 
     def get_week_calendar(self) -> Dict:
         """이번 주 경제 캘린더 반환"""
-        today = datetime.now()
+        today = _get_now()
         start_of_week = today - timedelta(days=today.weekday())
 
         events = self.fetch_economic_calendar()
@@ -181,7 +190,7 @@ class EarningsCalendar:
         tickers = tickers or self.MAJOR_STOCKS
         earnings = []
 
-        today = datetime.now()
+        today = _get_now()
         next_week = today + timedelta(days=14)
 
         for ticker in tickers:
@@ -228,7 +237,7 @@ class EarningsCalendar:
 
     def get_week_calendar(self) -> Dict:
         """이번 주 + 다음 주 실적 캘린더"""
-        today = datetime.now()
+        today = _get_now()
         start_of_week = today - timedelta(days=today.weekday())
 
         earnings = self.fetch_earnings_calendar()
