@@ -13,7 +13,7 @@ US Stock Report는 매일 아침 S&P 500 기반 미국 주식 시장 분석 리�
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env  # SMTP 설정 필요
+cp .env.example .env  # SMTP 설정 필요 (또는 직접 .env 작성)
 
 # 실행
 python main.py              # 전체 실행 (리포트 생성 + 이메일 발송)
@@ -23,6 +23,13 @@ python main.py --test-email # 테스트 이메일 발송
 # cron 설정 (KST 07:00 = UTC 22:00)
 0 22 * * 1-5 /path/to/venv/bin/python /path/to/main.py
 ```
+
+### GitHub Actions 스케줄링
+
+`.github/workflows/run_main.yml`로 자동 실행 (KST 06:55 = UTC 21:55, 월-금).
+민감 정보는 **GitHub Repository Secrets**에 등록하여 워크플로우 `env:` 블록으로 주입:
+- `SMTP_USER`, `SMTP_PASSWORD`, `EMAIL_FROM`, `EMAIL_RECIPIENTS`
+- Settings → Secrets and variables → Actions → New repository secret
 
 ## Architecture
 
@@ -111,4 +118,5 @@ recommendation = {
 - **Wikipedia 스크래핑**: `config/sp500_tickers.py`에서 User-Agent 헤더 필수 (403 방지)
 - **Gmail SMTP**: 앱 비밀번호 필요 (일반 비밀번호 사용 불가)
 - **yfinance 캐시**: `~/.cache/py-yfinance` 폴더 권한 문제 발생 시 무시 가능
-- **템플릿 호환성**: `get_top_recommendation()` 수정 시 반환 dict에 템플릿에서 사용하는 모든 필드 포함 필요
+- **템플릿 호환성**: 추천 dict 변환 시 템플릿에서 사용하는 모든 필드 포함 필요. Enhanced/Legacy 모두 `macd_signal`, `bollinger_z_score`, `atr_pct`, `target_return`, `reasons` 필드가 있어야 함
+- **GitHub Actions 환경변수**: `.env` 파일은 로컬 전용. GitHub Actions에서는 Repository Secrets → 워크플로우 `env:` 블록으로 주입
