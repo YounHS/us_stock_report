@@ -1,6 +1,6 @@
 # US Stock Report
 
-S&P 500 기반 미국 주식 시장 일일 분석 리포트를 자동 생성하여 이메일로 발송하는 Python 시스템입니다.
+S&P 500 기반 미국 주식 시장 일일 분석 리포트를 자동 생성하여 Slack으로 발송하는 Python 시스템입니다.
 
 ## 주요 기능
 
@@ -32,9 +32,9 @@ us_stock_report/
 ├── report/
 │   ├── generator.py             # Jinja2 리포트 생성
 │   └── templates/
-│       └── daily_report.html    # 이메일 HTML 템플릿
+│       └── daily_report.html    # HTML 리포트 템플릿
 ├── notification/
-│   └── email_sender.py          # SMTP 이메일 발송
+│   └── slack_sender.py          # Slack 발송 (요약 메시지 + PDF 리포트)
 ├── .github/workflows/
 │   └── run_main.yml             # GitHub Actions 스케줄링
 ├── requirements.txt
@@ -47,6 +47,9 @@ us_stock_report/
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
+
+# 시스템 의존성 (PDF 변환용)
+sudo apt-get install -y google-chrome-stable fonts-noto-cjk
 ```
 
 ## 환경 설정
@@ -54,19 +57,12 @@ pip install -r requirements.txt
 `.env` 파일을 프로젝트 루트에 생성합니다:
 
 ```env
-# SMTP
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USER=your_email@gmail.com
-SMTP_PASSWORD=your_app_password
-
-# Email
-EMAIL_FROM=your_email@gmail.com
-EMAIL_RECIPIENTS=recipient1@gmail.com,recipient2@gmail.com
+# Slack
+SLACK_BOT_TOKEN=xoxb-your-bot-token
+SLACK_CHANNEL=your-channel-name
 ```
 
-> Gmail 사용 시 일반 비밀번호가 아닌 **앱 비밀번호**가 필요합니다.
-> Google 계정 > 보안 > 2단계 인증 > 앱 비밀번호에서 생성할 수 있습니다.
+> Slack Bot Token은 [Slack API](https://api.slack.com/apps)에서 Bot을 생성하고 `chat:write`, `files:write` 권한을 부여한 뒤 발급받습니다.
 
 기술적 분석 파라미터도 `.env`에서 커스터마이징 가능합니다 (`config/settings.py` 참고).
 
@@ -83,14 +79,14 @@ LONGTERM_WEIGHT_RELATIVE_STRENGTH=15 # 상대강도 가중치 (기본: 15)
 ## 실행
 
 ```bash
-# 전체 실행 (리포트 생성 + 이메일 발송)
+# 전체 실행 (리포트 생성 + Slack 발송)
 python main.py
 
-# 이메일 발송 없이 리포트만 생성
+# 발송 없이 리포트만 생성
 python main.py --dry-run
 
-# 테스트 이메일 발송
-python main.py --test-email
+# 테스트 Slack 메시지 발송
+python main.py --test-slack
 ```
 
 ## 자동 스케줄링
@@ -98,6 +94,7 @@ python main.py --test-email
 ### GitHub Actions (권장)
 
 `.github/workflows/run_main.yml`로 월-금 KST 06:55에 자동 실행됩니다.
+워크플로우에서 한글 폰트(`fonts-noto-cjk`)를 자동 설치합니다 (Chrome은 `ubuntu-latest`에 기본 포함).
 
 GitHub Repository에 Secrets를 등록해야 합니다:
 
@@ -105,10 +102,8 @@ GitHub Repository에 Secrets를 등록해야 합니다:
 
 | Secret Name | 값 |
 |---|---|
-| `SMTP_USER` | SMTP 로그인 이메일 |
-| `SMTP_PASSWORD` | SMTP 앱 비밀번호 |
-| `EMAIL_FROM` | 발신자 이메일 |
-| `EMAIL_RECIPIENTS` | 수신자 이메일 (쉼표 구분) |
+| `SLACK_BOT_TOKEN` | Slack Bot Token (`xoxb-...`) |
+| `SLACK_CHANNEL` | Slack 채널명 |
 
 ### cron (로컬 서버)
 
@@ -147,3 +142,6 @@ GitHub Repository에 Secrets를 등록해야 합니다:
 - **Jinja2** - HTML 리포트 템플릿
 - **pydantic-settings** - 환경변수 관리
 - **beautifulsoup4** - S&P 500 종목 스크래핑
+- **slack-sdk** - Slack Bot 메시지/파일 발송
+- **Google Chrome (headless)** - HTML → PDF 변환
+- **fonts-noto-cjk** - PDF 한글 렌더링

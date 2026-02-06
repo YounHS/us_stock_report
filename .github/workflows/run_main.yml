@@ -21,6 +21,11 @@ jobs:
       with:
         python-version: '3.12' # 사용하시는 파이썬 버전에 맞게 수정하세요.
 
+    - name: Install Korean fonts for PDF
+      run: |
+        sudo apt-get update -qq
+        sudo apt-get install -y -qq fonts-noto-cjk
+
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
@@ -32,4 +37,6 @@ jobs:
         SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
         EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
         EMAIL_RECIPIENTS: ${{ secrets.EMAIL_RECIPIENTS }}
+        SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        SLACK_CHANNEL: ${{ secrets.SLACK_CHANNEL }}
       run: python main.py

@@ -85,6 +85,11 @@ class AnalysisSettings(BaseSettings):
     longterm_weight_kalman: int = Field(default=10, alias="LONGTERM_WEIGHT_KALMAN")
 
 
+class SlackSettings(BaseSettings):
+    bot_token: str = Field(default="", alias="SLACK_BOT_TOKEN")
+    channel: str = Field(default="", alias="SLACK_CHANNEL")
+
+
 class GeneralSettings(BaseSettings):
     timezone: str = Field(default="Asia/Seoul", alias="TIMEZONE")
     max_news_items: int = Field(default=10, alias="MAX_NEWS_ITEMS")
@@ -98,6 +103,7 @@ class Settings:
         self.email = EmailSettings()
         self.analysis = AnalysisSettings()
         self.general = GeneralSettings()
+        self.slack = SlackSettings()
         self.base_dir = Path(__file__).parent.parent
 
 

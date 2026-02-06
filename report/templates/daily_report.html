@@ -312,6 +312,23 @@
             padding-top: 10px;
             border-top: 1px solid rgba(255,255,255,0.2);
         }
+        .method-badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-left: 8px;
+            vertical-align: middle;
+        }
+        .method-enhanced {
+            background: #fbbf24;
+            color: #78350f;
+        }
+        .method-legacy {
+            background: rgba(255,255,255,0.25);
+            color: white;
+        }
         /* Enhanced Recommendation Styles */
         .confidence-badge {
             display: inline-block;
@@ -900,6 +917,11 @@
         {% if recommendation %}
         <div class="recommendation-callout">
             <h2>오늘의 추천 종목
+                {% if recommendation.recommendation_method %}
+                <span class="method-badge method-{{ recommendation.recommendation_method|lower }}">
+                    {{ recommendation.recommendation_method }}
+                </span>
+                {% endif %}
                 {% if recommendation.confidence %}
                 <span class="confidence-badge confidence-{{ recommendation.confidence|lower }}">
                     {{ recommendation.confidence }}

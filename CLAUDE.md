@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-US Stock Report는 매일 아침 S&P 500 기반 미국 주식 시장 분석 리포트를 이메일로 자동 발송하는 Python 시스템입니다.
+US Stock Report는 매일 아침 S&P 500 기반 미국 주식 시장 분석 리포트를 Slack으로 자동 발송하는 Python 시스템입니다.
 
 ## Commands
 
@@ -13,12 +13,15 @@ US Stock Report는 매일 아침 S&P 500 기반 미국 주식 시장 분석 리�
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env  # SMTP 설정 필요 (또는 직접 .env 작성)
+cp .env.example .env  # Slack 설정 필요 (또는 직접 .env 작성)
+
+# 시스템 의존성 (PDF 변환용)
+sudo apt-get install -y google-chrome-stable fonts-noto-cjk
 
 # 실행
-python main.py              # 전체 실행 (리포트 생성 + 이메일 발송)
-python main.py --dry-run    # 이메일 발송 없이 리포트만 생성
-python main.py --test-email # 테스트 이메일 발송
+python main.py              # 전체 실행 (리포트 생성 + Slack 발송)
+python main.py --dry-run    # 발송 없이 리포트만 생성
+python main.py --test-slack # 테스트 Slack 메시지 발송
 
 # cron 설정 (KST 07:00 = UTC 22:00)
 0 22 * * 1-5 /path/to/venv/bin/python /path/to/main.py
@@ -27,13 +30,15 @@ python main.py --test-email # 테스트 이메일 발송
 ### GitHub Actions 스케줄링
 
 `.github/workflows/run_main.yml`로 자동 실행 (KST 06:55 = UTC 21:55, 월-금).
+워크플로우에서 한글 폰트(`fonts-noto-cjk`) 설치 포함 (Chrome은 `ubuntu-latest`에 기본 포함).
 민감 정보는 **GitHub Repository Secrets**에 등록하여 워크플로우 `env:` 블록으로 주입:
-- `SMTP_USER`, `SMTP_PASSWORD`, `EMAIL_FROM`, `EMAIL_RECIPIENTS`
+- `SLACK_BOT_TOKEN`, `SLACK_CHANNEL`
+- (레거시) `SMTP_USER`, `SMTP_PASSWORD`, `EMAIL_FROM`, `EMAIL_RECIPIENTS`
 - Settings → Secrets and variables → Actions → New repository secret
 
 ## Architecture
 
-데이터 흐름: `main.py` → 데이터 수집 → 기술적 분석 → 신호 감지 → 캘린더/뉴스 수집 → 리포트 생성 → 이메일 발송
+데이터 흐름: `main.py` → 데이터 수집 → 기술적 분석 → 신호 감지 → 캘린더/뉴스 수집 → 리포트 생성(HTML) → PDF 변환 → Slack 발송
 
 ### 핵심 모듈
 
@@ -48,6 +53,7 @@ python main.py --test-email # 테스트 이메일 발송
   - `get_longterm_recommendations()`: 추세 추종 기반 장기 투자 추천 Top N
 - **news/fetcher.py**: 핫한 종목/섹터 뉴스 수집. `fetch_hot_stocks_news()`, `fetch_sector_highlights()`
 - **report/generator.py**: Jinja2로 `report/templates/daily_report.html` 렌더링
+- **notification/slack_sender.py**: Slack Bot Token 기반 메시지 + PDF 리포트 발송. HTML→PDF 변환은 `google-chrome --headless --print-to-pdf` 사용
 
 ### 리포트 구성
 
@@ -102,11 +108,12 @@ python main.py --test-email # 테스트 이메일 발송
 
 ### 설정 구조
 
-`config/settings.py`의 `Settings` 클래스가 4개 설정 그룹 관리:
-- `settings.smtp`: SMTP 서버 정보
-- `settings.email`: 수신자, 제목 등
+`config/settings.py`의 `Settings` 클래스가 5개 설정 그룹 관리:
+- `settings.smtp`: SMTP 서버 정보 (레거시)
+- `settings.email`: 수신자, 제목 등 (레거시)
 - `settings.analysis`: 기술적 분석 파라미터
 - `settings.general`: 타임존, 로그 레벨 등
+- `settings.slack`: Slack Bot Token, 채널
 
 ### 리포트 템플릿 구조
 
@@ -126,15 +133,19 @@ recommendation = {
     "score", "confidence", "score_breakdown",  # 점수 시스템 (Enhanced만)
     "bullish_factors", "warning_factors",      # 매수/주의 요인 (Enhanced만)
     "reasons", "holding_period", "source",     # 추천 근거
+    "recommendation_method",                   # "Enhanced" 또는 "Legacy"
 }
 ```
 
 템플릿에서 `is not none` 체크로 None 값 처리. Enhanced 전용 필드는 Legacy 사용 시 main.py에서 기본값 설정.
+`recommendation_method` 필드로 리포트/Slack에 사용된 추천 방식(Enhanced/Legacy) 표시.
 
 ## 주의사항
 
 - **Wikipedia 스크래핑**: `config/sp500_tickers.py`에서 User-Agent 헤더 필수 (403 방지)
-- **Gmail SMTP**: 앱 비밀번호 필요 (일반 비밀번호 사용 불가)
 - **yfinance 캐시**: `~/.cache/py-yfinance` 폴더 권한 문제 발생 시 무시 가능
-- **템플릿 호환성**: 추천 dict 변환 시 템플릿에서 사용하는 모든 필드 포함 필요. Enhanced/Legacy 모두 `macd_signal`, `bollinger_z_score`, `atr_pct`, `target_return`, `reasons`, `kalman_predicted_price`, `kalman_trend_velocity` 필드가 있어야 함
+- **템플릿 호환성**: 추천 dict 변환 시 템플릿에서 사용하는 모든 필드 포함 필요. Enhanced/Legacy 모두 `macd_signal`, `bollinger_z_score`, `atr_pct`, `target_return`, `reasons`, `kalman_predicted_price`, `kalman_trend_velocity`, `recommendation_method` 필드가 있어야 함
+- **PDF 변환**: `google-chrome --headless --print-to-pdf` 사용. 한글 출력을 위해 `fonts-noto-cjk` 필요
+- **Slack files_upload_v2**: 채널 이름이 아닌 **채널 ID**가 필요. `chat_postMessage` 응답에서 채널 ID를 추출하여 사용
 - **GitHub Actions 환경변수**: `.env` 파일은 로컬 전용. GitHub Actions에서는 Repository Secrets → 워크플로우 `env:` 블록으로 주입
+- **GitHub Actions Chrome**: `ubuntu-latest`에 Google Chrome 기본 포함. 한글 폰트(`fonts-noto-cjk`)만 추가 설치 필요

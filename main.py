@@ -3,9 +3,9 @@
 미국 주식 시장 일일 리포트 생성 및 발송
 
 Usage:
-    python main.py              # 전체 실행 (리포트 생성 + 이메일 발송)
-    python main.py --dry-run    # 이메일 발송 없이 리포트만 생성
-    python main.py --test-email # 테스트 이메일 발송
+    python main.py              # 전체 실행 (리포트 생성 + Slack 발송)
+    python main.py --dry-run    # 발송 없이 리포트만 생성
+    python main.py --test-slack # 테스트 Slack 메시지 발송
 """
 
 import argparse
@@ -26,7 +26,8 @@ from analysis.sector import SectorAnalyzer
 from analysis.signals import SignalDetector
 from news.fetcher import NewsFetcher
 from report.generator import ReportGenerator
-from notification.email_sender import EmailSender
+# from notification.email_sender import EmailSender
+from notification.slack_sender import SlackSender
 
 
 def setup_logging():
@@ -38,14 +39,14 @@ def setup_logging():
     )
 
 
-def main(dry_run: bool = False, test_email: bool = False):
+def main(dry_run: bool = False, test_slack: bool = False):
     """메인 실행 함수"""
     setup_logging()
     logger = logging.getLogger(__name__)
 
-    if test_email:
-        logger.info("테스트 이메일 발송")
-        sender = EmailSender()
+    if test_slack:
+        logger.info("테스트 Slack 메시지 발송")
+        sender = SlackSender()
         success = sender.send_test()
         sys.exit(0 if success else 1)
 
@@ -145,6 +146,7 @@ def main(dry_run: bool = False, test_email: bool = False):
                 "kalman_trend_velocity": round(rec_kalman.trend_velocity, 4) if rec_kalman else None,
                 "reasons": enhanced_rec.bullish_factors,
                 "disclaimer": enhanced_rec.disclaimer,
+                "recommendation_method": "Enhanced",
             }
         else:
             # Fallback to legacy recommendation
@@ -159,6 +161,7 @@ def main(dry_run: bool = False, test_email: bool = False):
                 recommendation.setdefault("score_breakdown", None)
                 recommendation.setdefault("kalman_predicted_price", None)
                 recommendation.setdefault("kalman_trend_velocity", None)
+                recommendation.setdefault("recommendation_method", "Legacy")
 
         # 5-1. 장기 투자 추천 종목 선정
         logger.info("5-1. 장기 투자 추천 종목 선정 중...")
@@ -210,19 +213,23 @@ def main(dry_run: bool = False, test_email: bool = False):
         report_path = report_gen.save_to_file(html_report)
         logger.info(f"   리포트 저장: {report_path}")
 
-        # 8. 이메일 발송
+        # 8. Slack 발송
         if dry_run:
-            logger.info("8. [DRY-RUN] 이메일 발송 건너뜀")
+            logger.info("8. [DRY-RUN] Slack 발송 건너뜀")
             logger.info(f"   생성된 리포트를 확인하세요: {report_path}")
         else:
-            logger.info("8. 이메일 발송 중...")
-            email_sender = EmailSender()
-            success = email_sender.send(html_report)
+            logger.info("8. Slack 발송 중...")
+            slack_sender = SlackSender()
+            success = slack_sender.send(
+                html_content=html_report,
+                market_summary=market_summary,
+                recommendation=recommendation,
+            )
 
             if success:
-                logger.info("   이메일 발송 완료!")
+                logger.info("   Slack 발송 완료!")
             else:
-                logger.error("   이메일 발송 실패")
+                logger.error("   Slack 발송 실패")
                 sys.exit(1)
 
         logger.info("=" * 50)
@@ -245,13 +252,13 @@ if __name__ == "__main__":
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="이메일 발송 없이 리포트만 생성",
+        help="발송 없이 리포트만 생성",
     )
     parser.add_argument(
-        "--test-email",
+        "--test-slack",
         action="store_true",
-        help="테스트 이메일 발송",
+        help="테스트 Slack 메시지 발송",
     )
 
     args = parser.parse_args()
-    main(dry_run=args.dry_run, test_email=args.test_email)
+    main(dry_run=args.dry_run, test_slack=args.test_slack)
