@@ -41,10 +41,11 @@ python main.py --test-email # 테스트 이메일 발송
 - **config/sp500_tickers.py**: Wikipedia에서 S&P 500 종목 스크래핑 (User-Agent 필수), 11개 GICS 섹터 매핑
 - **data/fetcher.py**: `yfinance`로 OHLCV 배치 다운로드. `StockDataFetcher.fetch_batch()` 사용
 - **data/calendar.py**: 경제 캘린더(`EconomicCalendar`) 및 실적 발표 일정(`EarningsCalendar`) 수집
-- **analysis/technical.py**: RSI, MACD, 볼린저밴드, ADX, ATR, 거래량, 상대강도, 52주 위치 계산. 결과는 dataclass로 반환 (`RSIResult`, `MACDResult`, `BollingerResult`, `ADXResult`, `ATRResult`, `VolumeResult`, `RelativeStrengthResult`, `Week52Result`)
-- **analysis/signals.py**: `SignalDetector`가 분석 결과에서 매수 신호 감지. 두 가지 추천 방식 제공:
-  - `get_enhanced_recommendation()`: 가중치 점수 시스템 기반 (우선 사용)
+- **analysis/technical.py**: RSI, MACD, 볼린저밴드, ADX, ATR, 거래량, 상대강도, 52주 위치, 칼만 필터 계산. 결과는 dataclass로 반환 (`RSIResult`, `MACDResult`, `BollingerResult`, `ADXResult`, `ATRResult`, `VolumeResult`, `RelativeStrengthResult`, `Week52Result`, `KalmanResult`)
+- **analysis/signals.py**: `SignalDetector`가 분석 결과에서 매수 신호 감지. 세 가지 추천 방식 제공:
+  - `get_enhanced_recommendation()`: 가중치 점수 시스템 기반 단기 추천 (우선 사용)
   - `get_top_recommendation()`: 레거시 방식 (Enhanced 실패 시 폴백)
+  - `get_longterm_recommendations()`: 추세 추종 기반 장기 투자 추천 Top N
 - **news/fetcher.py**: 핫한 종목/섹터 뉴스 수집. `fetch_hot_stocks_news()`, `fetch_sector_highlights()`
 - **report/generator.py**: Jinja2로 `report/templates/daily_report.html` 렌더링
 
@@ -58,6 +59,7 @@ python main.py --test-email # 테스트 이메일 발송
 6. 기술적 분석 신호 (1시그마 근접, RSI 과매도, MACD 골든크로스, 복합 신호)
 7. Top 10 상승/하락
 8. 오늘의 추천 종목 (RSI, ADX, MACD, BB Z-Score, 거래량, ATR%, SPY대비, 52주위치, 매도 목표가, 손절가, 보유 기간)
+9. 장기 투자 추천 Top 3 (추세 추종 기반, 녹색 카드 레이아웃)
 
 ### 기술적 분석 파라미터
 
@@ -65,23 +67,37 @@ python main.py --test-email # 테스트 이메일 발송
 - RSI: 14일 기준, 30 미만 = 과매도
 - MACD: 12/26/9 EMA
 - 볼린저밴드: 20일 SMA ± 2σ, Z-score로 1시그마 근접 판별 (-1.2 ≤ z ≤ -0.8)
+- 칼만 필터: process_variance=1e-5, measurement_variance=1e-2, blend_alpha=0.5 (Bollinger SMA와 블렌딩)
 
 ### 추천 종목 선정 로직
+
+**매도 목표가 계산 흐름**:
+- 칼만 필터 예측가와 Bollinger SMA를 α:(1-α) 비율로 블렌딩 (기본 50:50)
+- 블렌딩된 값이 ATR의 target_price로 사용됨
+- 칼만 필터 실패 시 Bollinger SMA 단독 사용 (기존 로직 폴백)
 
 **Enhanced 방식** (`get_enhanced_recommendation()`):
 - 가중치 점수 시스템으로 종목 순위 산정
 - 최소 점수(`min_recommendation_score`) 이상만 추천 대상
 - 70점 이상: High 신뢰도, 그 외: Medium 신뢰도
-- ATR 기반 손절가/목표가 계산
+- ATR 기반 손절가, 칼만 블렌딩 목표가 계산
 
 **Legacy 방식** (`get_top_recommendation()`):
 - Enhanced 실패 시 폴백으로 사용
 - 우선순위: 복합 신호 → RSI 과매도 → MACD 골든크로스 → 1시그마 근접
-- 매도 목표가는 20일 SMA 기준
+- 매도 목표가는 칼만 블렌딩 목표가 기준 (폴백: 20일 SMA)
+
+**장기 추천 방식** (`get_longterm_recommendations()`):
+- 추세 추종(Trend-Following) 전략 기반, 단기 추천과 별도 운영
+- 하드 필터: Kalman velocity > 0, ADX 방향 != bearish, RSI < 75, 거래량 비율 >= 0.7
+- SPY, QQQ, DIA, IWM 제외
+- 가중치 합계 100점: ADX(20) > MACD/상대강도(15) > RSI/볼린저/거래량/52주/칼만(10)
+- 최소 점수(`longterm_min_score`) 이상만 추천 대상, 점수 내림차순 Top N
 
 **추천에 포함되는 기술적 지표**:
 - RSI, ADX, MACD (골든크로스 여부), 볼린저밴드 Z-Score
 - 거래량 비율, ATR%, SPY 대비 상대강도(20일), 52주 위치
+- 칼만 필터 예측가, 추세 속도
 - 손절가, 리스크:리워드 비율
 
 ### 설정 구조
@@ -103,7 +119,9 @@ recommendation = {
     "macd_signal", "bollinger_z_score",        # MACD/볼린저
     "atr_pct", "relative_strength_20d",        # ATR/상대강도
     "week52_position",                         # 52주 위치
-    "target_price", "target_return",           # 목표가
+    "kalman_predicted_price",                  # 칼만 예측가
+    "kalman_trend_velocity",                   # 칼만 추세 속도
+    "target_price", "target_return",           # 목표가 (칼만+볼린저 블렌딩)
     "stop_loss", "risk_reward_ratio",          # 리스크 관리 (Enhanced만)
     "score", "confidence", "score_breakdown",  # 점수 시스템 (Enhanced만)
     "bullish_factors", "warning_factors",      # 매수/주의 요인 (Enhanced만)
@@ -118,5 +136,5 @@ recommendation = {
 - **Wikipedia 스크래핑**: `config/sp500_tickers.py`에서 User-Agent 헤더 필수 (403 방지)
 - **Gmail SMTP**: 앱 비밀번호 필요 (일반 비밀번호 사용 불가)
 - **yfinance 캐시**: `~/.cache/py-yfinance` 폴더 권한 문제 발생 시 무시 가능
-- **템플릿 호환성**: 추천 dict 변환 시 템플릿에서 사용하는 모든 필드 포함 필요. Enhanced/Legacy 모두 `macd_signal`, `bollinger_z_score`, `atr_pct`, `target_return`, `reasons` 필드가 있어야 함
+- **템플릿 호환성**: 추천 dict 변환 시 템플릿에서 사용하는 모든 필드 포함 필요. Enhanced/Legacy 모두 `macd_signal`, `bollinger_z_score`, `atr_pct`, `target_return`, `reasons`, `kalman_predicted_price`, `kalman_trend_velocity` 필드가 있어야 함
 - **GitHub Actions 환경변수**: `.env` 파일은 로컬 전용. GitHub Actions에서는 Repository Secrets → 워크플로우 `env:` 블록으로 주입

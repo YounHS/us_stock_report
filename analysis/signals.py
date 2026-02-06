@@ -67,6 +67,9 @@ class EnhancedRecommendation:
     volume_ratio: Optional[float] = None
     relative_strength_20d: Optional[float] = None
     week52_position: Optional[float] = None
+    # Kalman filter
+    kalman_predicted_price: Optional[float] = None
+    kalman_trend_velocity: Optional[float] = None
     disclaimer: str = "본 추천은 기술적 분석에 기반한 것으로, 투자 결정은 본인의 판단하에 이루어져야 합니다."
 
 
@@ -304,8 +307,12 @@ class SignalDetector:
             rs = analysis.get("relative_strength")
             week52 = analysis.get("week52")
             atr = analysis.get("atr")
+            kalman = analysis.get("kalman")
 
-            if bollinger:
+            if atr:
+                target_price = atr.target_price  # Kalman 블렌딩 목표가
+                target_return = round(((target_price - recommendation.close) / recommendation.close) * 100, 2)
+            elif bollinger:
                 target_price = bollinger.sma  # 20일 SMA
                 target_return = round(((target_price - recommendation.close) / recommendation.close) * 100, 2)
             else:
@@ -346,6 +353,9 @@ class SignalDetector:
                 # ATR 정보
                 "atr_value": round(atr.atr, 2) if atr else None,
                 "atr_pct": round(atr.atr / recommendation.close * 100, 2) if atr and recommendation.close else None,
+                # Kalman 정보
+                "kalman_predicted_price": round(kalman.predicted_price, 2) if kalman else None,
+                "kalman_trend_velocity": round(kalman.trend_velocity, 4) if kalman else None,
             }
 
         return None
@@ -579,6 +589,7 @@ class SignalDetector:
         rs = best_analysis.get("relative_strength")
         week52 = best_analysis.get("week52")
         atr = best_analysis.get("atr")
+        kalman = best_analysis.get("kalman")
 
         # Bullish factors
         if rsi and rsi.is_oversold:
@@ -671,4 +682,280 @@ class SignalDetector:
             volume_ratio=volume.volume_ratio if volume else None,
             relative_strength_20d=rs.rs_20d if rs else None,
             week52_position=week52.current_position_pct if week52 else None,
+            kalman_predicted_price=kalman.predicted_price if kalman else None,
+            kalman_trend_velocity=kalman.trend_velocity if kalman else None,
         )
+
+    # ============================
+    # Long-term Recommendation
+    # ============================
+
+    LONGTERM_EXCLUDED = {"SPY", "QQQ", "DIA", "IWM"}
+
+    def _longterm_passes_hard_filters(self, ticker: str, analysis: Dict) -> bool:
+        """장기 추천 하드 필터 (하나라도 실패하면 제외)"""
+        if ticker in self.LONGTERM_EXCLUDED:
+            return False
+
+        kalman = analysis.get("kalman")
+        adx = analysis.get("adx")
+        rsi = analysis.get("rsi")
+        volume = analysis.get("volume")
+
+        # 1. Kalman velocity > 0 (상승 추세 필수)
+        if not kalman or kalman.trend_velocity <= 0:
+            return False
+
+        # 2. ADX 방향 != bearish (하락 추세 불가)
+        if adx and adx.trend_direction == "bearish":
+            return False
+
+        # 3. RSI < 75 (과매수 아님)
+        if rsi and rsi.value >= 75:
+            return False
+
+        # 4. 거래량 비율 >= 0.7 (거래량 유지)
+        if volume and volume.volume_ratio < 0.7:
+            return False
+
+        return True
+
+    def _longterm_rsi_score(self, analysis: Dict) -> int:
+        """장기 RSI 점수 (최대 longterm_weight_rsi점) — RSI 45-60이 최적"""
+        rsi = analysis.get("rsi")
+        if not rsi:
+            return 0
+
+        weight = settings.analysis.longterm_weight_rsi
+        v = rsi.value
+
+        if 45 <= v <= 60:
+            return weight  # 건강한 상승대
+        elif 40 <= v < 45 or 60 < v <= 65:
+            return int(weight * 0.7)
+        elif 35 <= v < 40 or 65 < v <= 70:
+            return int(weight * 0.4)
+        return 0
+
+    def _longterm_macd_score(self, analysis: Dict) -> int:
+        """장기 MACD 점수 (최대 longterm_weight_macd점) — MACD > Signal & MACD > 0"""
+        macd = analysis.get("macd")
+        if not macd:
+            return 0
+
+        weight = settings.analysis.longterm_weight_macd
+        score = 0
+
+        if macd.macd_line > macd.signal_line:
+            score += int(weight * 0.6)
+        if macd.macd_line > 0:
+            score += int(weight * 0.4)
+
+        return min(score, weight)
+
+    def _longterm_bollinger_score(self, analysis: Dict) -> int:
+        """장기 볼린저 점수 (최대 longterm_weight_bollinger점) — Z-score 0.3~1.0 (SMA 상방)"""
+        bollinger = analysis.get("bollinger")
+        if not bollinger:
+            return 0
+
+        weight = settings.analysis.longterm_weight_bollinger
+        z = bollinger.z_score
+
+        if 0.3 <= z <= 1.0:
+            return weight  # SMA 위, 과열 아님
+        elif 0.0 <= z < 0.3:
+            return int(weight * 0.6)
+        elif 1.0 < z <= 1.5:
+            return int(weight * 0.4)
+        return 0
+
+    def _longterm_volume_score(self, analysis: Dict) -> int:
+        """장기 거래량 점수 (최대 longterm_weight_volume점) — 거래량 >= 1.3x 평균"""
+        volume = analysis.get("volume")
+        if not volume:
+            return 0
+
+        weight = settings.analysis.longterm_weight_volume
+        ratio = volume.volume_ratio
+
+        if ratio >= 1.5:
+            return weight
+        elif ratio >= 1.3:
+            return int(weight * 0.8)
+        elif ratio >= 1.0:
+            return int(weight * 0.5)
+        return 0
+
+    def _longterm_adx_score(self, analysis: Dict) -> int:
+        """장기 ADX 점수 (최대 longterm_weight_adx점) — ADX >= 30 + bullish"""
+        adx = analysis.get("adx")
+        if not adx:
+            return 0
+
+        weight = settings.analysis.longterm_weight_adx
+
+        if adx.trend_direction == "bullish":
+            if adx.adx >= 30:
+                return weight  # 강한 상승 추세
+            elif adx.adx >= 25:
+                return int(weight * 0.7)
+            elif adx.adx >= 20:
+                return int(weight * 0.4)
+        elif adx.trend_direction == "neutral":
+            if adx.adx >= 25:
+                return int(weight * 0.3)
+        return 0
+
+    def _longterm_relative_strength_score(self, analysis: Dict) -> int:
+        """장기 상대강도 점수 (최대 longterm_weight_relative_strength점) — RS 20d > 5% 아웃퍼폼"""
+        rs = analysis.get("relative_strength")
+        if not rs:
+            return 0
+
+        weight = settings.analysis.longterm_weight_relative_strength
+
+        if rs.rs_20d > 5:
+            return weight  # 강한 아웃퍼폼
+        elif rs.rs_20d > 2:
+            return int(weight * 0.7)
+        elif rs.rs_20d > 0:
+            return int(weight * 0.4)
+        return 0
+
+    def _longterm_week52_score(self, analysis: Dict) -> int:
+        """장기 52주 위치 점수 (최대 longterm_weight_week52점) — 40-70% 위치 (성장 여력)"""
+        week52 = analysis.get("week52")
+        if not week52:
+            return 0
+
+        weight = settings.analysis.longterm_weight_week52
+        pos = week52.current_position_pct
+
+        if 40 <= pos <= 70:
+            return weight  # 성장 여력 충분
+        elif 30 <= pos < 40 or 70 < pos <= 80:
+            return int(weight * 0.6)
+        elif 20 <= pos < 30 or 80 < pos <= 90:
+            return int(weight * 0.3)
+        return 0
+
+    def _longterm_kalman_score(self, analysis: Dict) -> int:
+        """장기 칼만 점수 (최대 longterm_weight_kalman점) — velocity/price > 0.3%"""
+        kalman = analysis.get("kalman")
+        close = analysis.get("close", 0)
+        if not kalman or not close:
+            return 0
+
+        weight = settings.analysis.longterm_weight_kalman
+        velocity_pct = (kalman.trend_velocity / close) * 100
+
+        if velocity_pct > 0.5:
+            return weight
+        elif velocity_pct > 0.3:
+            return int(weight * 0.7)
+        elif velocity_pct > 0.1:
+            return int(weight * 0.4)
+        return 0
+
+    def get_longterm_recommendations(self) -> List[Dict]:
+        """
+        장기 투자 추천 종목 선정 (추세 추종 기반)
+
+        Returns:
+            추천 종목 리스트 (최대 longterm_top_n개)
+        """
+        candidates = []
+
+        for ticker, analysis in self.analysis_results.items():
+            # 하드 필터
+            if not self._longterm_passes_hard_filters(ticker, analysis):
+                continue
+
+            # 8개 점수 합산
+            rsi_sc = self._longterm_rsi_score(analysis)
+            macd_sc = self._longterm_macd_score(analysis)
+            bollinger_sc = self._longterm_bollinger_score(analysis)
+            volume_sc = self._longterm_volume_score(analysis)
+            adx_sc = self._longterm_adx_score(analysis)
+            rs_sc = self._longterm_relative_strength_score(analysis)
+            week52_sc = self._longterm_week52_score(analysis)
+            kalman_sc = self._longterm_kalman_score(analysis)
+
+            total = rsi_sc + macd_sc + bollinger_sc + volume_sc + adx_sc + rs_sc + week52_sc + kalman_sc
+
+            if total < settings.analysis.longterm_min_score:
+                continue
+
+            candidates.append((ticker, total, {
+                "rsi": rsi_sc,
+                "macd": macd_sc,
+                "bollinger": bollinger_sc,
+                "volume": volume_sc,
+                "adx": adx_sc,
+                "relative_strength": rs_sc,
+                "week52": week52_sc,
+                "kalman": kalman_sc,
+            }, analysis))
+
+        # 점수 내림차순
+        candidates.sort(key=lambda x: x[1], reverse=True)
+
+        top_n = settings.analysis.longterm_top_n
+        results = []
+
+        for ticker, score, breakdown, analysis in candidates[:top_n]:
+            rsi = analysis.get("rsi")
+            macd = analysis.get("macd")
+            bollinger = analysis.get("bollinger")
+            volume = analysis.get("volume")
+            adx = analysis.get("adx")
+            rs = analysis.get("relative_strength")
+            week52 = analysis.get("week52")
+            kalman = analysis.get("kalman")
+            atr = analysis.get("atr")
+            close = analysis.get("close", 0)
+            change_pct = analysis.get("change_pct", 0)
+
+            # 투자 근거 수집 (상위 4개)
+            reasons = []
+            if adx and adx.trend_direction == "bullish":
+                reasons.append(f"ADX {adx.adx:.1f} — 상승 추세 확인")
+            if rs and rs.rs_20d > 0:
+                reasons.append(f"SPY 대비 20일 +{rs.rs_20d:.1f}% 아웃퍼폼")
+            if macd and macd.macd_line > macd.signal_line:
+                reasons.append("MACD 상승 모멘텀 유지")
+            if kalman:
+                vel_pct = (kalman.trend_velocity / close * 100) if close else 0
+                reasons.append(f"칼만 추세 속도 +{vel_pct:.2f}%/일")
+            if rsi:
+                reasons.append(f"RSI {rsi.value:.1f} — 건강한 모멘텀 구간")
+            if week52:
+                reasons.append(f"52주 {week52.current_position_pct:.0f}% 위치 — 성장 여력")
+
+            reasons = reasons[:4]
+
+            rec = {
+                "ticker": ticker,
+                "close": close,
+                "change_pct": change_pct,
+                "score": score,
+                "reasons": reasons,
+                "holding_period": "1-3개월 (추세 추종 전략)",
+                "disclaimer": "본 추천은 기술적 분석에 기반한 것으로, 투자 결정은 본인의 판단하에 이루어져야 합니다.",
+                # 기술적 지표
+                "rsi": round(rsi.value, 1) if rsi else None,
+                "adx": round(adx.adx, 1) if adx else None,
+                "macd_signal": "골든크로스" if macd and macd.is_bullish_cross else ("상승" if macd and macd.macd_line > macd.signal_line else None),
+                "bollinger_z_score": round(bollinger.z_score, 2) if bollinger else None,
+                "volume_ratio": round(volume.volume_ratio, 2) if volume else None,
+                "atr_pct": round(atr.atr / close * 100, 2) if atr and close else None,
+                "relative_strength_20d": round(rs.rs_20d, 1) if rs else None,
+                "week52_position": round(week52.current_position_pct, 1) if week52 else None,
+                "score_breakdown": breakdown,
+            }
+
+            logger.info(f"   [Long-term] 추천: {ticker} (점수: {score})")
+            results.append(rec)
+
+        return results

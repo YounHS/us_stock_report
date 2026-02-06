@@ -57,6 +57,11 @@ class AnalysisSettings(BaseSettings):
     atr_stop_multiplier: float = Field(default=2.0, alias="ATR_STOP_MULTIPLIER")
     min_risk_reward_ratio: float = Field(default=2.0, alias="MIN_RISK_REWARD_RATIO")
 
+    # Kalman Filter
+    kalman_process_variance: float = Field(default=1e-5, alias="KALMAN_PROCESS_VARIANCE")
+    kalman_measurement_variance: float = Field(default=1e-2, alias="KALMAN_MEASUREMENT_VARIANCE")
+    kalman_blend_alpha: float = Field(default=0.5, alias="KALMAN_BLEND_ALPHA")
+
     # Scoring Weights
     weight_rsi: int = Field(default=20, alias="WEIGHT_RSI")
     weight_volume: int = Field(default=15, alias="WEIGHT_VOLUME")
@@ -66,6 +71,18 @@ class AnalysisSettings(BaseSettings):
     weight_relative_strength: int = Field(default=10, alias="WEIGHT_RELATIVE_STRENGTH")
     weight_52week: int = Field(default=10, alias="WEIGHT_52WEEK")
     min_recommendation_score: int = Field(default=50, alias="MIN_RECOMMENDATION_SCORE")
+
+    # Long-term Recommendation
+    longterm_top_n: int = Field(default=3, alias="LONGTERM_TOP_N")
+    longterm_min_score: int = Field(default=40, alias="LONGTERM_MIN_SCORE")
+    longterm_weight_rsi: int = Field(default=10, alias="LONGTERM_WEIGHT_RSI")
+    longterm_weight_macd: int = Field(default=15, alias="LONGTERM_WEIGHT_MACD")
+    longterm_weight_bollinger: int = Field(default=10, alias="LONGTERM_WEIGHT_BOLLINGER")
+    longterm_weight_volume: int = Field(default=10, alias="LONGTERM_WEIGHT_VOLUME")
+    longterm_weight_adx: int = Field(default=20, alias="LONGTERM_WEIGHT_ADX")
+    longterm_weight_relative_strength: int = Field(default=15, alias="LONGTERM_WEIGHT_RELATIVE_STRENGTH")
+    longterm_weight_week52: int = Field(default=10, alias="LONGTERM_WEIGHT_52WEEK")
+    longterm_weight_kalman: int = Field(default=10, alias="LONGTERM_WEIGHT_KALMAN")
 
 
 class GeneralSettings(BaseSettings):

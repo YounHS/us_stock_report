@@ -439,6 +439,107 @@
             font-size: 16px;
             font-weight: 600;
         }
+        /* Long-term Recommendation Styles */
+        .longterm-callout {
+            background: linear-gradient(135deg, #065f46 0%, #059669 100%);
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 30px;
+            color: white;
+            box-shadow: 0 4px 15px rgba(6, 95, 70, 0.3);
+        }
+        .longterm-callout h2 {
+            color: white;
+            border-left: 4px solid #34d399;
+            padding-left: 12px;
+            margin-bottom: 20px;
+            font-size: 20px;
+        }
+        .longterm-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .longterm-card {
+            background: rgba(255,255,255,0.12);
+            border-radius: 10px;
+            padding: 18px;
+            border: 1px solid rgba(255,255,255,0.15);
+        }
+        .longterm-card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+        .longterm-rank {
+            font-size: 12px;
+            opacity: 0.8;
+            font-weight: 600;
+        }
+        .longterm-score {
+            background: rgba(52, 211, 153, 0.3);
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .longterm-ticker {
+            font-size: 26px;
+            font-weight: 800;
+            margin-bottom: 4px;
+        }
+        .longterm-price {
+            font-size: 16px;
+            opacity: 0.9;
+            margin-bottom: 12px;
+        }
+        .longterm-indicators {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+            margin-bottom: 12px;
+        }
+        .longterm-ind-item {
+            background: rgba(255,255,255,0.08);
+            border-radius: 4px;
+            padding: 5px 8px;
+            font-size: 11px;
+        }
+        .longterm-ind-item .label {
+            opacity: 0.7;
+            font-size: 10px;
+        }
+        .longterm-ind-item .value {
+            font-weight: 600;
+        }
+        .longterm-reasons {
+            font-size: 11px;
+            opacity: 0.9;
+            border-top: 1px solid rgba(255,255,255,0.15);
+            padding-top: 10px;
+        }
+        .longterm-reasons ul {
+            margin: 0;
+            padding-left: 14px;
+        }
+        .longterm-reasons li {
+            margin-bottom: 3px;
+        }
+        .longterm-footer {
+            text-align: center;
+            font-size: 12px;
+            opacity: 0.8;
+            padding-top: 10px;
+            border-top: 1px solid rgba(255,255,255,0.15);
+        }
+        .longterm-disclaimer {
+            font-size: 11px;
+            opacity: 0.6;
+            text-align: center;
+            margin-top: 8px;
+        }
     </style>
 </head>
 <body>
@@ -863,6 +964,18 @@
                     <div class="value">{{ recommendation.week52_position }}%</div>
                 </div>
                 {% endif %}
+                {% if recommendation.kalman_predicted_price is not none %}
+                <div class="indicator-item">
+                    <div class="label">Kalman예측</div>
+                    <div class="value {% if recommendation.kalman_predicted_price > recommendation.close %}positive{% elif recommendation.kalman_predicted_price < recommendation.close %}negative{% endif %}">${{ recommendation.kalman_predicted_price }}</div>
+                </div>
+                {% endif %}
+                {% if recommendation.kalman_trend_velocity is not none %}
+                <div class="indicator-item">
+                    <div class="label">추세속도</div>
+                    <div class="value {% if recommendation.kalman_trend_velocity > 0 %}positive{% elif recommendation.kalman_trend_velocity < 0 %}negative{% endif %}">{{ recommendation.kalman_trend_velocity }}</div>
+                </div>
+                {% endif %}
             </div>
             {% endif %}
 
@@ -1017,6 +1130,95 @@
             </div>
             <div class="recommendation-disclaimer">
                 {{ recommendation.disclaimer }}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- 장기 투자 추천 종목 -->
+        {% if longterm_recommendations %}
+        <div class="longterm-callout">
+            <h2>장기 투자 추천 Top {{ longterm_recommendations|length }}</h2>
+            <div class="longterm-grid">
+                {% for rec in longterm_recommendations %}
+                <div class="longterm-card">
+                    <div class="longterm-card-header">
+                        <span class="longterm-rank">#{{ loop.index }}</span>
+                        <span class="longterm-score">{{ rec.score }}점</span>
+                    </div>
+                    <div class="longterm-ticker">{{ rec.ticker }}</div>
+                    <div class="longterm-price">
+                        ${{ rec.close }}
+                        <span style="font-size: 13px; {{ 'color: #a7f3d0;' if rec.change_pct > 0 else 'color: #fca5a5;' if rec.change_pct < 0 else '' }}">
+                            {{ '+' if rec.change_pct > 0 else '' }}{{ rec.change_pct }}%
+                        </span>
+                    </div>
+                    <div class="longterm-indicators">
+                        {% if rec.rsi is not none %}
+                        <div class="longterm-ind-item">
+                            <span class="label">RSI</span>
+                            <span class="value">{{ rec.rsi }}</span>
+                        </div>
+                        {% endif %}
+                        {% if rec.adx is not none %}
+                        <div class="longterm-ind-item">
+                            <span class="label">ADX</span>
+                            <span class="value">{{ rec.adx }}</span>
+                        </div>
+                        {% endif %}
+                        {% if rec.macd_signal is not none %}
+                        <div class="longterm-ind-item">
+                            <span class="label">MACD</span>
+                            <span class="value">{{ rec.macd_signal }}</span>
+                        </div>
+                        {% endif %}
+                        {% if rec.bollinger_z_score is not none %}
+                        <div class="longterm-ind-item">
+                            <span class="label">BB Z</span>
+                            <span class="value">{{ rec.bollinger_z_score }}</span>
+                        </div>
+                        {% endif %}
+                        {% if rec.volume_ratio is not none %}
+                        <div class="longterm-ind-item">
+                            <span class="label">거래량</span>
+                            <span class="value">{{ rec.volume_ratio }}x</span>
+                        </div>
+                        {% endif %}
+                        {% if rec.atr_pct is not none %}
+                        <div class="longterm-ind-item">
+                            <span class="label">ATR%</span>
+                            <span class="value">{{ rec.atr_pct }}%</span>
+                        </div>
+                        {% endif %}
+                        {% if rec.relative_strength_20d is not none %}
+                        <div class="longterm-ind-item">
+                            <span class="label">SPY대비</span>
+                            <span class="value">{{ '+' if rec.relative_strength_20d > 0 else '' }}{{ rec.relative_strength_20d }}%</span>
+                        </div>
+                        {% endif %}
+                        {% if rec.week52_position is not none %}
+                        <div class="longterm-ind-item">
+                            <span class="label">52주</span>
+                            <span class="value">{{ rec.week52_position }}%</span>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% if rec.reasons %}
+                    <div class="longterm-reasons">
+                        <ul>
+                            {% for reason in rec.reasons[:4] %}
+                            <li>{{ reason }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            <div class="longterm-footer">
+                추천 보유 기간: {{ longterm_recommendations[0].holding_period }}
+            </div>
+            <div class="longterm-disclaimer">
+                {{ longterm_recommendations[0].disclaimer }}
             </div>
         </div>
         {% endif %}

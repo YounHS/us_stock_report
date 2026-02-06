@@ -81,6 +81,15 @@ class ATRResult:
     risk_reward_ratio: float
 
 
+@dataclass
+class KalmanResult:
+    """칼만 필터 분석 결과"""
+    filtered_price: float      # 노이즈 제거된 현재가
+    predicted_price: float     # 다음 스텝 예측가
+    trend_velocity: float      # 추세 속도 (일일 변화율)
+    blended_target: float      # Bollinger SMA와 블렌딩된 목표가
+
+
 class TechnicalAnalyzer:
     """기술적 분석 지표 계산기"""
 
@@ -106,6 +115,9 @@ class TechnicalAnalyzer:
         self.week52_lookback_days = settings.analysis.week52_lookback_days
         self.atr_period = settings.analysis.atr_period
         self.atr_stop_multiplier = settings.analysis.atr_stop_multiplier
+        self.kalman_process_variance = settings.analysis.kalman_process_variance
+        self.kalman_measurement_variance = settings.analysis.kalman_measurement_variance
+        self.kalman_blend_alpha = settings.analysis.kalman_blend_alpha
 
     def calculate_rsi(self, close_prices: pd.Series) -> Optional[RSIResult]:
         """
@@ -452,6 +464,85 @@ class TechnicalAnalyzer:
             risk_reward_ratio=round(risk_reward_ratio, 2),
         )
 
+    def calculate_kalman_filter(
+        self, close_prices: pd.Series, bollinger_sma: Optional[float] = None
+    ) -> Optional[KalmanResult]:
+        """
+        1D 칼만 필터로 가격 필터링 및 예측
+
+        State vector: [price, velocity]
+        Observation: closing price
+
+        Args:
+            close_prices: 종가 시리즈
+            bollinger_sma: 볼린저 SMA (블렌딩용, None이면 블렌딩 없음)
+
+        Returns:
+            KalmanResult or None
+        """
+        if len(close_prices) < 10:
+            return None
+
+        prices = close_prices.values.astype(float)
+
+        Q = self.kalman_process_variance
+        R = self.kalman_measurement_variance
+        alpha = self.kalman_blend_alpha
+
+        # State: [price, velocity]
+        x = np.array([prices[0], 0.0])
+
+        # Initial covariance
+        P = np.array([[1.0, 0.0],
+                      [0.0, 1.0]])
+
+        # State transition: price += velocity, velocity stays
+        F = np.array([[1.0, 1.0],
+                      [0.0, 1.0]])
+
+        # Observation: we observe only price
+        H = np.array([[1.0, 0.0]])
+
+        # Process noise covariance
+        Q_mat = Q * np.eye(2)
+
+        # Measurement noise covariance
+        R_mat = np.array([[R]])
+
+        # Run filter
+        for z in prices:
+            # Predict
+            x_pred = F @ x
+            P_pred = F @ P @ F.T + Q_mat
+
+            # Update
+            y = z - H @ x_pred
+            S = H @ P_pred @ H.T + R_mat
+            K = P_pred @ H.T / S[0, 0]
+
+            x = x_pred + K.flatten() * y
+            P = (np.eye(2) - K @ H) @ P_pred
+
+        filtered_price = x[0]
+        trend_velocity = x[1]
+
+        # 1-step prediction
+        x_next = F @ x
+        predicted_price = x_next[0]
+
+        # Blend with Bollinger SMA
+        if bollinger_sma is not None:
+            blended_target = alpha * predicted_price + (1 - alpha) * bollinger_sma
+        else:
+            blended_target = predicted_price
+
+        return KalmanResult(
+            filtered_price=round(filtered_price, 2),
+            predicted_price=round(predicted_price, 2),
+            trend_velocity=round(trend_velocity, 4),
+            blended_target=round(blended_target, 2),
+        )
+
     def analyze(self, df: pd.DataFrame, spy_df: Optional[pd.DataFrame] = None) -> Dict:
         """
         모든 기술적 지표 종합 분석
@@ -497,8 +588,16 @@ class TechnicalAnalyzer:
         else:
             result["relative_strength"] = None
 
-        # ATR with target price based on Bollinger SMA
-        if bollinger:
+        # Kalman filter
+        kalman = self.calculate_kalman_filter(
+            close, bollinger.sma if bollinger else None
+        )
+        result["kalman"] = kalman
+
+        # ATR with Kalman-blended target (fallback to Bollinger SMA)
+        if kalman and kalman.blended_target > 0:
+            result["atr"] = self.calculate_atr(df, kalman.blended_target)
+        elif bollinger:
             result["atr"] = self.calculate_atr(df, bollinger.sma)
         else:
             result["atr"] = None

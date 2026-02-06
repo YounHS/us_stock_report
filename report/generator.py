@@ -37,6 +37,7 @@ class ReportGenerator:
         recommendation: Optional[Dict] = None,
         economic_calendar: Optional[Dict] = None,
         earnings_calendar: Optional[Dict] = None,
+        longterm_recommendations: Optional[List[Dict]] = None,
         report_date: Optional[str] = None,
     ) -> str:
         """
@@ -99,6 +100,7 @@ class ReportGenerator:
             "recommendation": recommendation,
             "economic_calendar": economic_calendar,
             "earnings_calendar": earnings_calendar,
+            "longterm_recommendations": longterm_recommendations,
         }
 
         return template.render(**context)

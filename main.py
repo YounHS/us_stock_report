@@ -108,6 +108,7 @@ def main(dry_run: bool = False, test_email: bool = False):
             rec_macd = rec_analysis.get("macd")
             rec_bollinger = rec_analysis.get("bollinger")
             rec_atr = rec_analysis.get("atr")
+            rec_kalman = rec_analysis.get("kalman")
 
             recommendation = {
                 "ticker": enhanced_rec.ticker,
@@ -140,6 +141,8 @@ def main(dry_run: bool = False, test_email: bool = False):
                 "atr_pct": round(rec_atr.atr / enhanced_rec.close * 100, 2) if rec_atr and enhanced_rec.close else None,
                 "relative_strength_20d": enhanced_rec.relative_strength_20d,
                 "week52_position": enhanced_rec.week52_position,
+                "kalman_predicted_price": round(rec_kalman.predicted_price, 2) if rec_kalman else None,
+                "kalman_trend_velocity": round(rec_kalman.trend_velocity, 4) if rec_kalman else None,
                 "reasons": enhanced_rec.bullish_factors,
                 "disclaimer": enhanced_rec.disclaimer,
             }
@@ -154,6 +157,16 @@ def main(dry_run: bool = False, test_email: bool = False):
                 recommendation.setdefault("bullish_factors", [])
                 recommendation.setdefault("warning_factors", [])
                 recommendation.setdefault("score_breakdown", None)
+                recommendation.setdefault("kalman_predicted_price", None)
+                recommendation.setdefault("kalman_trend_velocity", None)
+
+        # 5-1. 장기 투자 추천 종목 선정
+        logger.info("5-1. 장기 투자 추천 종목 선정 중...")
+        longterm_recommendations = signal_detector.get_longterm_recommendations()
+        if longterm_recommendations:
+            logger.info(f"   장기 추천 {len(longterm_recommendations)}개 종목 선정")
+        else:
+            logger.info("   장기 추천 종목 없음 (하드 필터 통과 종목 부족)")
 
         # 6. 뉴스 수집
         logger.info("6. 뉴스 수집 중...")
@@ -190,6 +203,7 @@ def main(dry_run: bool = False, test_email: bool = False):
             recommendation=recommendation,
             economic_calendar=economic_calendar,
             earnings_calendar=earnings_calendar,
+            longterm_recommendations=longterm_recommendations,
         )
 
         # 리포트 파일 저장
