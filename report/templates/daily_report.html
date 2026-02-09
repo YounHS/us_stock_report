@@ -929,6 +929,9 @@
                 <span class="score-display">({{ recommendation.score }}점)</span>
                 {% endif %}
             </h2>
+            <div style="margin-bottom: 15px;">
+                <a href="https://younhs.github.io/us_stock_report/" target="_blank" style="color: rgba(255,255,255,0.85); font-size: 12px; text-decoration: underline;">지표 설명 보기 &rarr;</a>
+            </div>
             <div class="recommendation-ticker">
                 <span class="ticker-symbol">{{ recommendation.ticker }}</span>
                 <span class="ticker-price">${{ recommendation.close }}</span>
@@ -998,6 +1001,24 @@
                     <div class="value {% if recommendation.kalman_trend_velocity > 0 %}positive{% elif recommendation.kalman_trend_velocity < 0 %}negative{% endif %}">{{ recommendation.kalman_trend_velocity }}</div>
                 </div>
                 {% endif %}
+                {% if recommendation.obv_trend is not none %}
+                <div class="indicator-item">
+                    <div class="label">OBV추세</div>
+                    <div class="value {% if recommendation.obv_trend == 'accumulation' %}positive{% elif recommendation.obv_trend == 'distribution' %}negative{% endif %}">{{ recommendation.obv_trend }}</div>
+                </div>
+                {% endif %}
+                {% if recommendation.stochastic_k is not none %}
+                <div class="indicator-item">
+                    <div class="label">Stoch %K</div>
+                    <div class="value {% if recommendation.stochastic_k < 20 %}positive{% elif recommendation.stochastic_k > 80 %}negative{% endif %}">{{ recommendation.stochastic_k }}</div>
+                </div>
+                {% endif %}
+                {% if recommendation.squeeze_status is not none %}
+                <div class="indicator-item">
+                    <div class="label">Squeeze</div>
+                    <div class="value {% if recommendation.squeeze_status == 'ON' %}positive{% endif %}">{{ recommendation.squeeze_status }}</div>
+                </div>
+                {% endif %}
             </div>
             {% endif %}
 
@@ -1042,7 +1063,7 @@
                 <div class="score-bar-container">
                     <span class="score-bar-label">RSI</span>
                     <div class="score-bar-track">
-                        <div class="score-bar-fill" style="width: {{ (recommendation.score_breakdown.rsi_score / 20 * 100)|abs }}%"></div>
+                        <div class="score-bar-fill" style="width: {{ (recommendation.score_breakdown.rsi_score / 15 * 100)|abs }}%"></div>
                     </div>
                     <span class="score-bar-value">{{ recommendation.score_breakdown.rsi_score }}</span>
                 </div>
@@ -1051,7 +1072,7 @@
                 <div class="score-bar-container">
                     <span class="score-bar-label">거래량</span>
                     <div class="score-bar-track">
-                        <div class="score-bar-fill" style="width: {{ (recommendation.score_breakdown.volume_score / 15 * 100)|abs }}%"></div>
+                        <div class="score-bar-fill" style="width: {{ (recommendation.score_breakdown.volume_score / 10 * 100)|abs }}%"></div>
                     </div>
                     <span class="score-bar-value">{{ recommendation.score_breakdown.volume_score }}</span>
                 </div>
@@ -1060,7 +1081,7 @@
                 <div class="score-bar-container">
                     <span class="score-bar-label">ADX</span>
                     <div class="score-bar-track">
-                        <div class="score-bar-fill" style="width: {{ (recommendation.score_breakdown.adx_score / 15 * 100)|abs }}%"></div>
+                        <div class="score-bar-fill" style="width: {{ (recommendation.score_breakdown.adx_score / 12 * 100)|abs }}%"></div>
                     </div>
                     <span class="score-bar-value">{{ recommendation.score_breakdown.adx_score }}</span>
                 </div>
@@ -1069,7 +1090,7 @@
                 <div class="score-bar-container">
                     <span class="score-bar-label">MACD</span>
                     <div class="score-bar-track">
-                        <div class="score-bar-fill" style="width: {{ (recommendation.score_breakdown.macd_score / 15 * 100)|abs }}%"></div>
+                        <div class="score-bar-fill" style="width: {{ (recommendation.score_breakdown.macd_score / 12 * 100)|abs }}%"></div>
                     </div>
                     <span class="score-bar-value">{{ recommendation.score_breakdown.macd_score }}</span>
                 </div>
@@ -1078,7 +1099,7 @@
                 <div class="score-bar-container">
                     <span class="score-bar-label">볼린저</span>
                     <div class="score-bar-track">
-                        <div class="score-bar-fill" style="width: {{ (recommendation.score_breakdown.bollinger_score / 15 * 100)|abs }}%"></div>
+                        <div class="score-bar-fill" style="width: {{ (recommendation.score_breakdown.bollinger_score / 12 * 100)|abs }}%"></div>
                     </div>
                     <span class="score-bar-value">{{ recommendation.score_breakdown.bollinger_score }}</span>
                 </div>
@@ -1087,7 +1108,7 @@
                 <div class="score-bar-container">
                     <span class="score-bar-label">상대강도</span>
                     <div class="score-bar-track">
-                        <div class="score-bar-fill" style="width: {{ (recommendation.score_breakdown.relative_strength_score / 10 * 100)|abs }}%"></div>
+                        <div class="score-bar-fill" style="width: {{ (recommendation.score_breakdown.relative_strength_score / 8 * 100)|abs }}%"></div>
                     </div>
                     <span class="score-bar-value">{{ recommendation.score_breakdown.relative_strength_score }}</span>
                 </div>
@@ -1096,9 +1117,36 @@
                 <div class="score-bar-container">
                     <span class="score-bar-label">52주위치</span>
                     <div class="score-bar-track">
-                        <div class="score-bar-fill" style="width: {{ (recommendation.score_breakdown.week52_score / 10 * 100)|abs }}%"></div>
+                        <div class="score-bar-fill" style="width: {{ (recommendation.score_breakdown.week52_score / 8 * 100)|abs }}%"></div>
                     </div>
                     <span class="score-bar-value">{{ recommendation.score_breakdown.week52_score }}</span>
+                </div>
+                {% endif %}
+                {% if recommendation.score_breakdown.obv_score != 0 %}
+                <div class="score-bar-container">
+                    <span class="score-bar-label">OBV</span>
+                    <div class="score-bar-track">
+                        <div class="score-bar-fill" style="width: {{ (recommendation.score_breakdown.obv_score / 8 * 100)|abs }}%"></div>
+                    </div>
+                    <span class="score-bar-value">{{ recommendation.score_breakdown.obv_score }}</span>
+                </div>
+                {% endif %}
+                {% if recommendation.score_breakdown.stochastic_score != 0 %}
+                <div class="score-bar-container">
+                    <span class="score-bar-label">Stochastic</span>
+                    <div class="score-bar-track">
+                        <div class="score-bar-fill" style="width: {{ (recommendation.score_breakdown.stochastic_score / 8 * 100)|abs }}%"></div>
+                    </div>
+                    <span class="score-bar-value">{{ recommendation.score_breakdown.stochastic_score }}</span>
+                </div>
+                {% endif %}
+                {% if recommendation.score_breakdown.squeeze_score != 0 %}
+                <div class="score-bar-container">
+                    <span class="score-bar-label">Squeeze</span>
+                    <div class="score-bar-track">
+                        <div class="score-bar-fill" style="width: {{ (recommendation.score_breakdown.squeeze_score / 7 * 100)|abs }}%"></div>
+                    </div>
+                    <span class="score-bar-value">{{ recommendation.score_breakdown.squeeze_score }}</span>
                 </div>
                 {% endif %}
             </div>
@@ -1160,6 +1208,9 @@
         {% if longterm_recommendations %}
         <div class="longterm-callout">
             <h2>장기 투자 추천 Top {{ longterm_recommendations|length }}</h2>
+            <div style="margin-bottom: 15px;">
+                <a href="https://younhs.github.io/us_stock_report/" target="_blank" style="color: rgba(255,255,255,0.85); font-size: 12px; text-decoration: underline;">지표 설명 보기 &rarr;</a>
+            </div>
             <div class="longterm-grid">
                 {% for rec in longterm_recommendations %}
                 <div class="longterm-card">
@@ -1221,6 +1272,24 @@
                         <div class="longterm-ind-item">
                             <span class="label">52주</span>
                             <span class="value">{{ rec.week52_position }}%</span>
+                        </div>
+                        {% endif %}
+                        {% if rec.obv_trend is not none %}
+                        <div class="longterm-ind-item">
+                            <span class="label">OBV</span>
+                            <span class="value">{{ rec.obv_trend }}</span>
+                        </div>
+                        {% endif %}
+                        {% if rec.stochastic_k is not none %}
+                        <div class="longterm-ind-item">
+                            <span class="label">Stoch</span>
+                            <span class="value">{{ rec.stochastic_k }}</span>
+                        </div>
+                        {% endif %}
+                        {% if rec.squeeze_status is not none %}
+                        <div class="longterm-ind-item">
+                            <span class="label">Squeeze</span>
+                            <span class="value">{{ rec.squeeze_status }}</span>
                         </div>
                         {% endif %}
                     </div>

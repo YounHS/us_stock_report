@@ -110,6 +110,9 @@ def main(dry_run: bool = False, test_slack: bool = False):
             rec_bollinger = rec_analysis.get("bollinger")
             rec_atr = rec_analysis.get("atr")
             rec_kalman = rec_analysis.get("kalman")
+            rec_obv = rec_analysis.get("obv")
+            rec_stochastic = rec_analysis.get("stochastic")
+            rec_squeeze = rec_analysis.get("squeeze")
 
             recommendation = {
                 "ticker": enhanced_rec.ticker,
@@ -131,6 +134,9 @@ def main(dry_run: bool = False, test_slack: bool = False):
                     "bollinger_score": enhanced_rec.score_breakdown.bollinger_score,
                     "relative_strength_score": enhanced_rec.score_breakdown.relative_strength_score,
                     "week52_score": enhanced_rec.score_breakdown.week52_score,
+                    "obv_score": enhanced_rec.score_breakdown.obv_score,
+                    "stochastic_score": enhanced_rec.score_breakdown.stochastic_score,
+                    "squeeze_score": enhanced_rec.score_breakdown.squeeze_score,
                 },
                 "holding_period": enhanced_rec.holding_period,
                 "source": enhanced_rec.source,
@@ -144,6 +150,11 @@ def main(dry_run: bool = False, test_slack: bool = False):
                 "week52_position": enhanced_rec.week52_position,
                 "kalman_predicted_price": round(rec_kalman.predicted_price, 2) if rec_kalman else None,
                 "kalman_trend_velocity": round(rec_kalman.trend_velocity, 4) if rec_kalman else None,
+                # 새 지표
+                "obv_trend": rec_obv.obv_trend if rec_obv else None,
+                "stochastic_k": round(rec_stochastic.k, 1) if rec_stochastic else None,
+                "squeeze_status": "ON" if rec_squeeze and rec_squeeze.is_squeeze_on else ("OFF" if rec_squeeze else None),
+                "squeeze_momentum": rec_squeeze.momentum_direction if rec_squeeze else None,
                 "reasons": enhanced_rec.bullish_factors,
                 "disclaimer": enhanced_rec.disclaimer,
                 "recommendation_method": "Enhanced",
@@ -161,6 +172,10 @@ def main(dry_run: bool = False, test_slack: bool = False):
                 recommendation.setdefault("score_breakdown", None)
                 recommendation.setdefault("kalman_predicted_price", None)
                 recommendation.setdefault("kalman_trend_velocity", None)
+                recommendation.setdefault("obv_trend", None)
+                recommendation.setdefault("stochastic_k", None)
+                recommendation.setdefault("squeeze_status", None)
+                recommendation.setdefault("squeeze_momentum", None)
                 recommendation.setdefault("recommendation_method", "Legacy")
 
         # 5-1. 장기 투자 추천 종목 선정

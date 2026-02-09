@@ -1,0 +1,1029 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>US Stock Report - 기술적 지표 설명</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+            color: white;
+            text-align: center;
+            padding: 40px 20px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 15px rgba(30, 64, 175, 0.3);
+        }
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 8px;
+        }
+        .header p {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        .toc {
+            background: white;
+            border-radius: 8px;
+            padding: 25px 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .toc h2 {
+            font-size: 18px;
+            color: #1f2937;
+            border-left: 4px solid #2563eb;
+            padding-left: 12px;
+            margin-bottom: 15px;
+        }
+        .toc-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 8px;
+        }
+        .toc a {
+            color: #2563eb;
+            text-decoration: none;
+            font-size: 14px;
+            padding: 6px 10px;
+            border-radius: 6px;
+            display: block;
+            transition: background 0.15s;
+        }
+        .toc a:hover {
+            background: #eff6ff;
+            text-decoration: underline;
+        }
+        .toc a .toc-score {
+            font-size: 11px;
+            color: #6b7280;
+            display: block;
+        }
+        .indicator-section {
+            background: white;
+            border-radius: 8px;
+            padding: 30px;
+            margin-bottom: 24px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            scroll-margin-top: 20px;
+        }
+        .indicator-section h2 {
+            font-size: 20px;
+            color: #1f2937;
+            border-left: 4px solid #2563eb;
+            padding-left: 12px;
+            margin-bottom: 6px;
+        }
+        .indicator-section .subtitle {
+            color: #6b7280;
+            font-size: 14px;
+            margin-bottom: 20px;
+            padding-left: 16px;
+        }
+        .indicator-section h3 {
+            font-size: 15px;
+            color: #374151;
+            margin: 20px 0 10px 0;
+        }
+        .formula {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 14px 18px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            color: #334155;
+            margin-bottom: 15px;
+            overflow-x: auto;
+        }
+        .params {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 6px 16px;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+        .params dt {
+            font-weight: 600;
+            color: #374151;
+        }
+        .params dd {
+            color: #6b7280;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 10px 0 15px 0;
+            font-size: 13px;
+        }
+        th, td {
+            padding: 10px 12px;
+            text-align: left;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        th {
+            background-color: #f9fafb;
+            font-weight: 600;
+            color: #374151;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+        tr:hover { background-color: #f9fafb; }
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .badge-buy { background: #dcfce7; color: #166534; }
+        .badge-sell { background: #fee2e2; color: #991b1b; }
+        .badge-neutral { background: #f3f4f6; color: #4b5563; }
+        .badge-caution { background: #fef3c7; color: #92400e; }
+        .score-box {
+            display: inline-flex;
+            gap: 12px;
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            border-radius: 8px;
+            padding: 10px 16px;
+            font-size: 13px;
+            margin-bottom: 15px;
+        }
+        .score-box .label {
+            color: #6b7280;
+            font-size: 11px;
+        }
+        .score-box .value {
+            font-weight: 700;
+            color: #1e40af;
+        }
+        .info-section {
+            background: white;
+            border-radius: 8px;
+            padding: 30px;
+            margin-bottom: 24px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            scroll-margin-top: 20px;
+        }
+        .info-section h2 {
+            font-size: 20px;
+            color: #1f2937;
+            border-left: 4px solid #059669;
+            padding-left: 12px;
+            margin-bottom: 15px;
+        }
+        .info-section h3 {
+            font-size: 15px;
+            color: #374151;
+            margin: 18px 0 8px 0;
+        }
+        .comparison-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 15px;
+        }
+        .comparison-card {
+            border-radius: 8px;
+            padding: 18px;
+        }
+        .comparison-card.short-term {
+            background: linear-gradient(135deg, #eff6ff, #dbeafe);
+            border: 1px solid #bfdbfe;
+        }
+        .comparison-card.long-term {
+            background: linear-gradient(135deg, #ecfdf5, #d1fae5);
+            border: 1px solid #a7f3d0;
+        }
+        .comparison-card h4 {
+            font-size: 15px;
+            margin-bottom: 8px;
+        }
+        .comparison-card.short-term h4 { color: #1e40af; }
+        .comparison-card.long-term h4 { color: #065f46; }
+        .comparison-card ul {
+            font-size: 13px;
+            padding-left: 18px;
+            color: #4b5563;
+        }
+        .comparison-card li { margin-bottom: 4px; }
+        .filter-list {
+            font-size: 13px;
+            padding-left: 18px;
+            color: #4b5563;
+        }
+        .filter-list li { margin-bottom: 6px; }
+        .confidence-table td:first-child { font-weight: 600; }
+        .footer {
+            text-align: center;
+            padding: 30px 0 20px 0;
+            font-size: 12px;
+            color: #9ca3af;
+        }
+        .back-to-top {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            background: #2563eb;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 44px;
+            height: 44px;
+            font-size: 20px;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+        .back-to-top:hover { background: #1d4ed8; }
+        @media (max-width: 640px) {
+            .container { padding: 12px; }
+            .header { padding: 24px 16px; }
+            .header h1 { font-size: 22px; }
+            .indicator-section, .info-section, .toc { padding: 20px; }
+            .toc-grid { grid-template-columns: 1fr 1fr; }
+            .comparison-grid { grid-template-columns: 1fr; }
+            .score-box { flex-direction: column; gap: 6px; }
+            table { font-size: 12px; }
+            th, td { padding: 8px 6px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>US Stock Report</h1>
+            <p>기술적 지표 설명 및 해석 가이드</p>
+            <p style="font-size: 12px; opacity: 0.7; margin-top: 6px;">S&P 500 기반 일일 리포트에 사용되는 12개 기술적 지표</p>
+        </div>
+
+        <!-- 목차 -->
+        <div class="toc">
+            <h2>목차</h2>
+            <div class="toc-grid">
+                <a href="#rsi">1. RSI (상대강도지수)<span class="toc-score">단기 15점 / 장기 8점</span></a>
+                <a href="#macd">2. MACD<span class="toc-score">단기 12점 / 장기 12점</span></a>
+                <a href="#bollinger">3. 볼린저밴드<span class="toc-score">단기 12점 / 장기 8점</span></a>
+                <a href="#adx">4. ADX (추세 강도)<span class="toc-score">단기 12점 / 장기 15점</span></a>
+                <a href="#volume">5. 거래량<span class="toc-score">단기 10점 / 장기 8점</span></a>
+                <a href="#atr">6. ATR (변동성)<span class="toc-score">손절가/목표가 계산</span></a>
+                <a href="#relative-strength">7. 상대강도 (SPY대비)<span class="toc-score">단기 8점 / 장기 12점</span></a>
+                <a href="#week52">8. 52주 위치<span class="toc-score">단기 8점 / 장기 8점</span></a>
+                <a href="#kalman">9. 칼만 필터<span class="toc-score">장기 8점 / 목표가 블렌딩</span></a>
+                <a href="#obv">10. OBV (거래량 누적)<span class="toc-score">단기 8점 / 장기 8점</span></a>
+                <a href="#stochastic">11. Stochastic<span class="toc-score">단기 8점 / 장기 5점</span></a>
+                <a href="#squeeze">12. TTM Squeeze<span class="toc-score">단기 7점 / 장기 8점</span></a>
+                <a href="#recommendation">추천 시스템 설명<span class="toc-score">단기/장기 차이점, 필터링, 신뢰도</span></a>
+            </div>
+        </div>
+
+        <!-- 1. RSI -->
+        <div class="indicator-section" id="rsi">
+            <h2>1. RSI (Relative Strength Index)</h2>
+            <p class="subtitle">일정 기간 동안의 상승폭과 하락폭을 비교하여 현재 가격의 과매수/과매도 상태를 판단하는 오실레이터 지표</p>
+
+            <h3>계산 방식</h3>
+            <div class="formula">
+RSI = 100 - (100 / (1 + RS))<br>
+RS = 평균 상승폭(EMA) / 평균 하락폭(EMA)
+            </div>
+
+            <h3>파라미터</h3>
+            <dl class="params">
+                <dt>기간</dt><dd>14일 (기본값)</dd>
+                <dt>과매도 기준</dt><dd>RSI &lt; 30</dd>
+                <dt>과매수 기준</dt><dd>RSI &gt; 70</dd>
+            </dl>
+
+            <h3>값별 해석</h3>
+            <table>
+                <thead><tr><th>RSI 범위</th><th>의미</th><th>매매 신호</th></tr></thead>
+                <tbody>
+                    <tr><td>&lt; 20</td><td>극심한 과매도</td><td><span class="badge badge-buy">강한 매수</span> 단기 반등 가능성 높음</td></tr>
+                    <tr><td>20 ~ 25</td><td>과매도</td><td><span class="badge badge-buy">매수</span></td></tr>
+                    <tr><td>25 ~ 30</td><td>과매도 진입</td><td><span class="badge badge-buy">약한 매수</span></td></tr>
+                    <tr><td>30 ~ 50</td><td>약세 구간</td><td><span class="badge badge-neutral">중립</span></td></tr>
+                    <tr><td>50 ~ 70</td><td>강세 구간</td><td><span class="badge badge-neutral">중립</span></td></tr>
+                    <tr><td>&gt; 70</td><td>과매수</td><td><span class="badge badge-sell">주의</span> 조정 가능성</td></tr>
+                </tbody>
+            </table>
+
+            <h3>점수 배점</h3>
+            <div class="score-box">
+                <div><span class="label">단기 추천</span><br><span class="value">최대 15점</span></div>
+                <div><span class="label">장기 추천</span><br><span class="value">최대 8점</span></div>
+            </div>
+            <table>
+                <thead><tr><th>구분</th><th>조건</th><th>점수</th></tr></thead>
+                <tbody>
+                    <tr><td>단기</td><td>RSI &lt; 20 (극심한 과매도)</td><td>15점</td></tr>
+                    <tr><td>단기</td><td>RSI &lt; 25</td><td>12점</td></tr>
+                    <tr><td>단기</td><td>RSI &lt; 30</td><td>9점</td></tr>
+                    <tr><td>장기</td><td>RSI 45~60 (건강한 상승대)</td><td>8점</td></tr>
+                    <tr><td>장기</td><td>RSI 40~45 또는 60~65</td><td>5점</td></tr>
+                    <tr><td>장기</td><td>RSI 35~40 또는 65~70</td><td>3점</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- 2. MACD -->
+        <div class="indicator-section" id="macd">
+            <h2>2. MACD (Moving Average Convergence Divergence)</h2>
+            <p class="subtitle">단기 및 장기 지수이동평균의 차이를 이용하여 추세의 방향, 강도, 전환점을 파악하는 지표</p>
+
+            <h3>계산 방식</h3>
+            <div class="formula">
+MACD Line = EMA(12) - EMA(26)<br>
+Signal Line = EMA(9) of MACD Line<br>
+Histogram = MACD Line - Signal Line<br>
+<br>
+골든크로스: MACD Line이 Signal Line을 상향 돌파<br>
+데드크로스: MACD Line이 Signal Line을 하향 돌파
+            </div>
+
+            <h3>파라미터</h3>
+            <dl class="params">
+                <dt>Fast EMA</dt><dd>12일</dd>
+                <dt>Slow EMA</dt><dd>26일</dd>
+                <dt>Signal EMA</dt><dd>9일</dd>
+            </dl>
+
+            <h3>값별 해석</h3>
+            <table>
+                <thead><tr><th>상태</th><th>의미</th><th>매매 신호</th></tr></thead>
+                <tbody>
+                    <tr><td>골든크로스 + 히스토그램 &gt; 0</td><td>상승 추세 전환 확인</td><td><span class="badge badge-buy">강한 매수</span></td></tr>
+                    <tr><td>골든크로스 + 히스토그램 &lt; 0</td><td>상승 전환 초기</td><td><span class="badge badge-buy">매수</span></td></tr>
+                    <tr><td>MACD &gt; Signal, MACD &gt; 0</td><td>상승 추세 유지</td><td><span class="badge badge-neutral">보유</span></td></tr>
+                    <tr><td>히스토그램 반등 (아직 크로스 전)</td><td>반등 초기 신호</td><td><span class="badge badge-caution">관망</span></td></tr>
+                    <tr><td>데드크로스</td><td>하락 추세 전환</td><td><span class="badge badge-sell">매도 주의</span></td></tr>
+                </tbody>
+            </table>
+
+            <h3>점수 배점</h3>
+            <div class="score-box">
+                <div><span class="label">단기 추천</span><br><span class="value">최대 12점</span></div>
+                <div><span class="label">장기 추천</span><br><span class="value">최대 12점</span></div>
+            </div>
+            <table>
+                <thead><tr><th>구분</th><th>조건</th><th>점수</th></tr></thead>
+                <tbody>
+                    <tr><td>단기</td><td>골든크로스 + 히스토그램 &gt; 0</td><td>12점</td></tr>
+                    <tr><td>단기</td><td>골든크로스 + 히스토그램 &lt; 0</td><td>8점</td></tr>
+                    <tr><td>단기</td><td>히스토그램 반등 중</td><td>3점</td></tr>
+                    <tr><td>장기</td><td>MACD &gt; Signal + MACD &gt; 0</td><td>12점</td></tr>
+                    <tr><td>장기</td><td>MACD &gt; Signal</td><td>7점</td></tr>
+                    <tr><td>장기</td><td>MACD &gt; 0</td><td>4점</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- 3. 볼린저밴드 -->
+        <div class="indicator-section" id="bollinger">
+            <h2>3. 볼린저밴드 (Bollinger Bands)</h2>
+            <p class="subtitle">이동평균선에 표준편차를 적용하여 가격 변동 범위를 설정하고, Z-Score로 현재 가격의 상대적 위치를 판단하는 지표</p>
+
+            <h3>계산 방식</h3>
+            <div class="formula">
+중심선 (SMA) = 20일 단순이동평균<br>
+상단밴드 = SMA + 2 x 표준편차<br>
+하단밴드 = SMA - 2 x 표준편차<br>
+Z-Score = (현재가 - SMA) / 표준편차<br>
+<br>
+1시그마 근접: -1.2 &le; Z-Score &le; -0.8 (하단 밴드 근처)
+            </div>
+
+            <h3>파라미터</h3>
+            <dl class="params">
+                <dt>기간</dt><dd>20일</dd>
+                <dt>표준편차 배수</dt><dd>2&sigma;</dd>
+                <dt>1시그마 근접 범위</dt><dd>-1.2 ~ -0.8</dd>
+            </dl>
+
+            <h3>값별 해석</h3>
+            <table>
+                <thead><tr><th>Z-Score 범위</th><th>위치</th><th>매매 신호</th></tr></thead>
+                <tbody>
+                    <tr><td>&le; -2.0</td><td>하단밴드 하회 (2&sigma; 이하)</td><td><span class="badge badge-buy">강한 매수</span> 극단적 과매도</td></tr>
+                    <tr><td>-2.0 ~ -1.5</td><td>하단밴드 근접</td><td><span class="badge badge-buy">매수</span></td></tr>
+                    <tr><td>-1.2 ~ -0.8</td><td>1시그마 근접 (평균회귀 후보)</td><td><span class="badge badge-buy">매수 관심</span></td></tr>
+                    <tr><td>-0.8 ~ 0.8</td><td>중심선 부근</td><td><span class="badge badge-neutral">중립</span></td></tr>
+                    <tr><td>0.3 ~ 1.0</td><td>SMA 상방 (장기 건강한 위치)</td><td><span class="badge badge-neutral">장기 유리</span></td></tr>
+                    <tr><td>&ge; 2.0</td><td>상단밴드 상회</td><td><span class="badge badge-sell">과매수 주의</span></td></tr>
+                </tbody>
+            </table>
+
+            <h3>점수 배점</h3>
+            <div class="score-box">
+                <div><span class="label">단기 추천</span><br><span class="value">최대 12점</span></div>
+                <div><span class="label">장기 추천</span><br><span class="value">최대 8점</span></div>
+            </div>
+            <table>
+                <thead><tr><th>구분</th><th>조건</th><th>점수</th></tr></thead>
+                <tbody>
+                    <tr><td>단기</td><td>Z-Score &le; -1.5 (2&sigma; 근접)</td><td>12점</td></tr>
+                    <tr><td>단기</td><td>Z-Score &le; -1.2</td><td>9점</td></tr>
+                    <tr><td>단기</td><td>Z-Score &le; -0.8 (1&sigma; 근접)</td><td>7점</td></tr>
+                    <tr><td>장기</td><td>Z-Score 0.3~1.0 (SMA 위, 과열 아님)</td><td>8점</td></tr>
+                    <tr><td>장기</td><td>Z-Score 0.0~0.3</td><td>4점</td></tr>
+                    <tr><td>장기</td><td>Z-Score 1.0~1.5</td><td>3점</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- 4. ADX -->
+        <div class="indicator-section" id="adx">
+            <h2>4. ADX (Average Directional Index)</h2>
+            <p class="subtitle">추세의 강도와 방향을 측정하는 지표. +DI와 -DI의 관계로 방향을, ADX 값으로 강도를 판단</p>
+
+            <h3>계산 방식</h3>
+            <div class="formula">
+True Range = max(High-Low, |High-Prev Close|, |Low-Prev Close|)<br>
++DM = High - Prev High (양수일 때만, +DM > -DM일 때만)<br>
+-DM = Prev Low - Low (양수일 때만, -DM > +DM일 때만)<br>
++DI = 100 x EMA(+DM) / EMA(TR)<br>
+-DI = 100 x EMA(-DM) / EMA(TR)<br>
+DX = 100 x |+DI - -DI| / (+DI + -DI)<br>
+ADX = EMA(DX)
+            </div>
+
+            <h3>파라미터</h3>
+            <dl class="params">
+                <dt>기간</dt><dd>14일</dd>
+                <dt>약한 추세 임계값</dt><dd>ADX &lt; 25</dd>
+            </dl>
+
+            <h3>값별 해석</h3>
+            <table>
+                <thead><tr><th>ADX</th><th>추세 강도</th><th>+DI vs -DI</th><th>의미</th></tr></thead>
+                <tbody>
+                    <tr><td>&lt; 25</td><td>약한 추세 (weak)</td><td>-</td><td><span class="badge badge-buy">평균회귀 전략 유효</span></td></tr>
+                    <tr><td>25 ~ 40</td><td>중간 추세 (moderate)</td><td>+DI &gt; -DI</td><td><span class="badge badge-neutral">상승 추세</span></td></tr>
+                    <tr><td>25 ~ 40</td><td>중간 추세 (moderate)</td><td>-DI &gt; +DI</td><td><span class="badge badge-caution">하락 추세</span></td></tr>
+                    <tr><td>&ge; 40</td><td>강한 추세 (strong)</td><td>+DI &gt; -DI</td><td><span class="badge badge-buy">강한 상승</span></td></tr>
+                    <tr><td>&ge; 40</td><td>강한 추세 (strong)</td><td>-DI &gt; +DI</td><td><span class="badge badge-sell">Falling Knife 위험</span></td></tr>
+                </tbody>
+            </table>
+
+            <h3>점수 배점</h3>
+            <div class="score-box">
+                <div><span class="label">단기 추천</span><br><span class="value">최대 12점</span></div>
+                <div><span class="label">장기 추천</span><br><span class="value">최대 15점</span></div>
+            </div>
+            <table>
+                <thead><tr><th>구분</th><th>조건</th><th>점수</th></tr></thead>
+                <tbody>
+                    <tr><td>단기</td><td>약한 추세 (ADX &lt; 25)</td><td>12점 (평균회귀 유효)</td></tr>
+                    <tr><td>단기</td><td>중간 추세 + 비하락</td><td>6점</td></tr>
+                    <tr><td>단기</td><td>강한 하락 추세</td><td><span style="color:#dc2626;">-15점 (페널티)</span></td></tr>
+                    <tr><td>장기</td><td>ADX &ge; 30 + bullish</td><td>15점</td></tr>
+                    <tr><td>장기</td><td>ADX &ge; 25 + bullish</td><td>10점</td></tr>
+                    <tr><td>장기</td><td>ADX &ge; 20 + bullish</td><td>6점</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- 5. 거래량 -->
+        <div class="indicator-section" id="volume">
+            <h2>5. 거래량 (Volume)</h2>
+            <p class="subtitle">일정 기간 평균 거래량 대비 현재 거래량의 비율을 분석하여 시장 참여도와 신호 신뢰도를 판단</p>
+
+            <h3>계산 방식</h3>
+            <div class="formula">
+거래량 비율 = 당일 거래량 / 20일 평균 거래량<br>
+거래량 스파이크 = 거래량 비율 &ge; 1.5
+            </div>
+
+            <h3>파라미터</h3>
+            <dl class="params">
+                <dt>평균 기간</dt><dd>20일</dd>
+                <dt>스파이크 임계값</dt><dd>1.5배</dd>
+            </dl>
+
+            <h3>값별 해석</h3>
+            <table>
+                <thead><tr><th>거래량 비율</th><th>의미</th><th>매매 신호</th></tr></thead>
+                <tbody>
+                    <tr><td>&lt; 0.7</td><td>거래량 감소</td><td><span class="badge badge-sell">약한 신호</span> 과매도여도 신뢰 낮음</td></tr>
+                    <tr><td>0.7 ~ 1.0</td><td>평균 이하</td><td><span class="badge badge-caution">주의</span></td></tr>
+                    <tr><td>1.0 ~ 1.3</td><td>평균 수준</td><td><span class="badge badge-neutral">중립</span></td></tr>
+                    <tr><td>1.3 ~ 1.5</td><td>평균 이상</td><td><span class="badge badge-neutral">관심 증가</span></td></tr>
+                    <tr><td>1.5 ~ 2.0</td><td>거래량 급증</td><td><span class="badge badge-buy">신호 확인</span></td></tr>
+                    <tr><td>&ge; 2.0</td><td>거래량 폭증</td><td><span class="badge badge-buy">강한 신호 확인</span> 바닥 가능성</td></tr>
+                </tbody>
+            </table>
+
+            <h3>점수 배점</h3>
+            <div class="score-box">
+                <div><span class="label">단기 추천</span><br><span class="value">최대 10점</span></div>
+                <div><span class="label">장기 추천</span><br><span class="value">최대 8점</span></div>
+            </div>
+            <table>
+                <thead><tr><th>구분</th><th>조건</th><th>점수</th></tr></thead>
+                <tbody>
+                    <tr><td>단기</td><td>과매도 + 거래량 &ge; 2.0x</td><td>10점</td></tr>
+                    <tr><td>단기</td><td>과매도 + 거래량 스파이크</td><td>8점</td></tr>
+                    <tr><td>단기</td><td>과매도 + 거래량 &lt; 0.7x</td><td><span style="color:#dc2626;">-5점 (페널티)</span></td></tr>
+                    <tr><td>장기</td><td>거래량 &ge; 1.5x</td><td>8점</td></tr>
+                    <tr><td>장기</td><td>거래량 &ge; 1.3x</td><td>6점</td></tr>
+                    <tr><td>장기</td><td>거래량 &ge; 1.0x</td><td>4점</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- 6. ATR -->
+        <div class="indicator-section" id="atr">
+            <h2>6. ATR (Average True Range)</h2>
+            <p class="subtitle">일정 기간의 가격 변동폭 평균을 계산하여 변동성을 측정하고, 손절가와 목표가 설정에 사용</p>
+
+            <h3>계산 방식</h3>
+            <div class="formula">
+True Range = max(High - Low, |High - Prev Close|, |Low - Prev Close|)<br>
+ATR = 14일 True Range 이동평균<br>
+ATR% = ATR / 현재가 x 100<br>
+<br>
+손절가 = 현재가 - ATR x 2.0 (stop multiplier)<br>
+목표가 = 칼만 블렌딩 목표가 (또는 20일 SMA)<br>
+R:R 비율 = (목표가 - 현재가) / (현재가 - 손절가)
+            </div>
+
+            <h3>파라미터</h3>
+            <dl class="params">
+                <dt>기간</dt><dd>14일</dd>
+                <dt>손절 배수</dt><dd>2.0 ATR</dd>
+                <dt>최소 R:R 비율</dt><dd>2.0:1 (미달 시 필터링)</dd>
+            </dl>
+
+            <h3>값별 해석</h3>
+            <table>
+                <thead><tr><th>ATR%</th><th>변동성</th><th>의미</th></tr></thead>
+                <tbody>
+                    <tr><td>&lt; 1.5%</td><td>낮은 변동성</td><td>안정적, 좁은 손절 범위</td></tr>
+                    <tr><td>1.5% ~ 3.0%</td><td>보통</td><td>일반적 종목 수준</td></tr>
+                    <tr><td>3.0% ~ 5.0%</td><td>높은 변동성</td><td>넓은 손절 필요, 수익 가능성도 큼</td></tr>
+                    <tr><td>&gt; 5.0%</td><td>매우 높은 변동성</td><td>고위험/고수익, 포지션 크기 조절 필요</td></tr>
+                </tbody>
+            </table>
+            <p style="font-size: 13px; color: #6b7280; margin-top: 10px;">ATR은 직접 점수에 반영되지 않지만, R:R 비율이 2:1 미만이면 추천 대상에서 제외됩니다.</p>
+        </div>
+
+        <!-- 7. 상대강도 -->
+        <div class="indicator-section" id="relative-strength">
+            <h2>7. 상대강도 (Relative Strength vs SPY)</h2>
+            <p class="subtitle">개별 종목의 수익률을 SPY(S&P 500 ETF)와 비교하여 시장 대비 성과를 판단하는 지표</p>
+
+            <h3>계산 방식</h3>
+            <div class="formula">
+상대강도(N일) = 종목 N일 수익률 - SPY N일 수익률<br>
+<br>
+5일, 10일, 20일 세 기간을 계산하여<br>
+3개 중 2개 이상 양수이면 "아웃퍼폼"으로 판단
+            </div>
+
+            <h3>파라미터</h3>
+            <dl class="params">
+                <dt>단기</dt><dd>5일</dd>
+                <dt>중기</dt><dd>10일</dd>
+                <dt>장기</dt><dd>20일</dd>
+            </dl>
+
+            <h3>값별 해석</h3>
+            <table>
+                <thead><tr><th>20일 상대강도</th><th>의미</th><th>매매 신호</th></tr></thead>
+                <tbody>
+                    <tr><td>&gt; +5%</td><td>강한 아웃퍼폼</td><td><span class="badge badge-buy">시장 대비 강세</span></td></tr>
+                    <tr><td>+2% ~ +5%</td><td>아웃퍼폼</td><td><span class="badge badge-buy">양호</span></td></tr>
+                    <tr><td>0 ~ +2%</td><td>소폭 아웃퍼폼</td><td><span class="badge badge-neutral">중립~양호</span></td></tr>
+                    <tr><td>&lt; 0</td><td>언더퍼폼</td><td><span class="badge badge-caution">시장 대비 약세</span></td></tr>
+                </tbody>
+            </table>
+
+            <h3>점수 배점</h3>
+            <div class="score-box">
+                <div><span class="label">단기 추천</span><br><span class="value">최대 8점</span></div>
+                <div><span class="label">장기 추천</span><br><span class="value">최대 12점</span></div>
+            </div>
+            <table>
+                <thead><tr><th>구분</th><th>조건</th><th>점수</th></tr></thead>
+                <tbody>
+                    <tr><td>단기</td><td>20일 RS &gt; +5%</td><td>8점</td></tr>
+                    <tr><td>단기</td><td>20일 RS &gt; 0</td><td>5점</td></tr>
+                    <tr><td>장기</td><td>20일 RS &gt; +5%</td><td>12점</td></tr>
+                    <tr><td>장기</td><td>20일 RS &gt; +2%</td><td>8점</td></tr>
+                    <tr><td>장기</td><td>20일 RS &gt; 0</td><td>4점</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- 8. 52주 위치 -->
+        <div class="indicator-section" id="week52">
+            <h2>8. 52주 위치 (52-Week Position)</h2>
+            <p class="subtitle">현재 가격이 52주 고점과 저점 사이 어디에 위치하는지를 백분율로 표시. 0%는 52주 최저점, 100%는 최고점</p>
+
+            <h3>계산 방식</h3>
+            <div class="formula">
+52주 위치(%) = (현재가 - 52주 최저가) / (52주 최고가 - 52주 최저가) x 100
+            </div>
+
+            <h3>파라미터</h3>
+            <dl class="params">
+                <dt>산출 기간</dt><dd>252 거래일 (약 1년)</dd>
+                <dt>저점 근처 기준</dt><dd>10% 이하</dd>
+            </dl>
+
+            <h3>값별 해석</h3>
+            <table>
+                <thead><tr><th>52주 위치</th><th>의미</th><th>매매 신호</th></tr></thead>
+                <tbody>
+                    <tr><td>&le; 5%</td><td>52주 최저점 근처</td><td><span class="badge badge-buy">단기 반등 기대</span></td></tr>
+                    <tr><td>5% ~ 10%</td><td>저점 근처</td><td><span class="badge badge-buy">단기 매수 관심</span></td></tr>
+                    <tr><td>20% ~ 40%</td><td>하위권</td><td><span class="badge badge-neutral">중립</span></td></tr>
+                    <tr><td>40% ~ 70%</td><td>중간대</td><td><span class="badge badge-neutral">장기 투자 적합</span> 성장 여력</td></tr>
+                    <tr><td>70% ~ 90%</td><td>상위권</td><td><span class="badge badge-caution">주의</span></td></tr>
+                    <tr><td>&ge; 90%</td><td>52주 고점 근처</td><td><span class="badge badge-sell">과열 가능</span></td></tr>
+                </tbody>
+            </table>
+
+            <h3>점수 배점</h3>
+            <div class="score-box">
+                <div><span class="label">단기 추천</span><br><span class="value">최대 8점</span></div>
+                <div><span class="label">장기 추천</span><br><span class="value">최대 8점</span></div>
+            </div>
+            <table>
+                <thead><tr><th>구분</th><th>조건</th><th>점수</th></tr></thead>
+                <tbody>
+                    <tr><td>단기</td><td>&le; 5% (최저점 근처)</td><td>8점</td></tr>
+                    <tr><td>단기</td><td>&le; 10%</td><td>5점</td></tr>
+                    <tr><td>장기</td><td>40~70% (성장 여력)</td><td>8점</td></tr>
+                    <tr><td>장기</td><td>30~40% 또는 70~80%</td><td>4점</td></tr>
+                    <tr><td>장기</td><td>20~30% 또는 80~90%</td><td>2점</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- 9. 칼만 필터 -->
+        <div class="indicator-section" id="kalman">
+            <h2>9. 칼만 필터 (Kalman Filter)</h2>
+            <p class="subtitle">노이즈가 섞인 가격 데이터를 필터링하여 실제 추세를 추정하고, 다음 시점의 가격을 예측하는 확률적 필터</p>
+
+            <h3>계산 방식</h3>
+            <div class="formula">
+상태 벡터: [가격, 속도(velocity)]<br>
+관측값: 종가<br>
+<br>
+Predict: x_pred = F * x (상태 전이)<br>
+Update: Kalman Gain으로 관측값 반영<br>
+<br>
+예측가 = 필터된 가격 + 속도 (1-step ahead)<br>
+블렌딩 목표가 = &alpha; x 예측가 + (1-&alpha;) x 볼린저 SMA<br>
+(&alpha; = 0.5, 50:50 블렌딩)
+            </div>
+
+            <h3>파라미터</h3>
+            <dl class="params">
+                <dt>프로세스 분산</dt><dd>1e-5 (상태 변화 민감도)</dd>
+                <dt>측정 분산</dt><dd>1e-2 (노이즈 수준)</dd>
+                <dt>블렌딩 비율</dt><dd>&alpha; = 0.5 (칼만 50% : SMA 50%)</dd>
+            </dl>
+
+            <h3>값별 해석</h3>
+            <table>
+                <thead><tr><th>지표</th><th>값</th><th>의미</th></tr></thead>
+                <tbody>
+                    <tr><td>예측가 &gt; 현재가</td><td>양수 차이</td><td><span class="badge badge-buy">상승 예상</span></td></tr>
+                    <tr><td>예측가 &lt; 현재가</td><td>음수 차이</td><td><span class="badge badge-sell">하락 예상</span></td></tr>
+                    <tr><td>추세 속도 &gt; 0</td><td>양수 velocity</td><td>상승 추세 (장기 하드 필터)</td></tr>
+                    <tr><td>추세 속도 &lt; 0</td><td>음수 velocity</td><td>하락 추세 (장기 추천 제외)</td></tr>
+                    <tr><td>velocity/price &gt; 0.5%</td><td>강한 속도</td><td>장기 추천 유리</td></tr>
+                </tbody>
+            </table>
+
+            <h3>점수 배점</h3>
+            <div class="score-box">
+                <div><span class="label">단기 추천</span><br><span class="value">점수 없음 (목표가 계산에 사용)</span></div>
+                <div><span class="label">장기 추천</span><br><span class="value">최대 8점</span></div>
+            </div>
+            <table>
+                <thead><tr><th>구분</th><th>조건</th><th>점수</th></tr></thead>
+                <tbody>
+                    <tr><td>장기</td><td>velocity/price &gt; 0.5%</td><td>8점</td></tr>
+                    <tr><td>장기</td><td>velocity/price &gt; 0.3%</td><td>5점</td></tr>
+                    <tr><td>장기</td><td>velocity/price &gt; 0.1%</td><td>3점</td></tr>
+                    <tr><td>장기 (하드필터)</td><td>velocity &le; 0</td><td>추천 제외</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- 10. OBV -->
+        <div class="indicator-section" id="obv">
+            <h2>10. OBV (On Balance Volume)</h2>
+            <p class="subtitle">가격 상승일에는 거래량을 더하고 하락일에는 빼서 누적하여, 기관/세력의 매집(accumulation)과 분산(distribution) 행위를 감지</p>
+
+            <h3>계산 방식</h3>
+            <div class="formula">
+가격 상승일: OBV = 전일 OBV + 당일 거래량<br>
+가격 하락일: OBV = 전일 OBV - 당일 거래량<br>
+가격 보합:   OBV = 전일 OBV<br>
+<br>
+OBV SMA = OBV의 20일 이동평균<br>
+<br>
+매집(accumulation): OBV 상승 + OBV > OBV SMA<br>
+분산(distribution): OBV 하락 + OBV < OBV SMA<br>
+Bullish Divergence: 가격 횡보/하락 + OBV 상승 + OBV > OBV SMA
+            </div>
+
+            <h3>파라미터</h3>
+            <dl class="params">
+                <dt>SMA 기간</dt><dd>20일</dd>
+                <dt>추세 판단 기준</dt><dd>최근 5일 OBV 변화</dd>
+            </dl>
+
+            <h3>값별 해석</h3>
+            <table>
+                <thead><tr><th>OBV 추세</th><th>의미</th><th>매매 신호</th></tr></thead>
+                <tbody>
+                    <tr><td>accumulation</td><td>기관/세력 매집 중</td><td><span class="badge badge-buy">매수 긍정</span></td></tr>
+                    <tr><td>distribution</td><td>매도 압력 증가</td><td><span class="badge badge-sell">매도 압력</span></td></tr>
+                    <tr><td>neutral</td><td>방향성 없음</td><td><span class="badge badge-neutral">중립</span></td></tr>
+                    <tr><td>Bullish Divergence</td><td>가격 하락 중 OBV 상승</td><td><span class="badge badge-buy">강한 매집 신호</span></td></tr>
+                </tbody>
+            </table>
+
+            <h3>점수 배점</h3>
+            <div class="score-box">
+                <div><span class="label">단기 추천</span><br><span class="value">최대 8점</span></div>
+                <div><span class="label">장기 추천</span><br><span class="value">최대 8점</span></div>
+            </div>
+            <table>
+                <thead><tr><th>구분</th><th>조건</th><th>점수</th></tr></thead>
+                <tbody>
+                    <tr><td>단기</td><td>Bullish Divergence</td><td>8점</td></tr>
+                    <tr><td>단기</td><td>매집 + 과매도</td><td>7점</td></tr>
+                    <tr><td>단기</td><td>매집</td><td>4점</td></tr>
+                    <tr><td>단기</td><td>분산 (distribution)</td><td><span style="color:#dc2626;">-4점 (페널티)</span></td></tr>
+                    <tr><td>장기</td><td>매집 + OBV &gt; SMA</td><td>8점</td></tr>
+                    <tr><td>장기</td><td>매집</td><td>5점</td></tr>
+                    <tr><td>장기</td><td>Bullish Divergence</td><td>4점</td></tr>
+                    <tr><td>장기</td><td>neutral</td><td>2점</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- 11. Stochastic -->
+        <div class="indicator-section" id="stochastic">
+            <h2>11. Stochastic Oscillator</h2>
+            <p class="subtitle">일정 기간의 가격 범위에서 현재 가격의 상대적 위치를 측정하는 오실레이터. %K와 %D 교차로 매매 시점 판단</p>
+
+            <h3>계산 방식</h3>
+            <div class="formula">
+%K = (현재가 - N일 최저가) / (N일 최고가 - N일 최저가) x 100<br>
+%D = %K의 M일 단순이동평균<br>
+<br>
+Bullish Cross: 과매도 구간(%K &lt; 30)에서 %K가 %D를 상향 돌파
+            </div>
+
+            <h3>파라미터</h3>
+            <dl class="params">
+                <dt>%K 기간</dt><dd>14일</dd>
+                <dt>%D 기간</dt><dd>3일 (SMA)</dd>
+                <dt>과매도</dt><dd>%K &lt; 20</dd>
+                <dt>과매수</dt><dd>%K &gt; 80</dd>
+            </dl>
+
+            <h3>값별 해석</h3>
+            <table>
+                <thead><tr><th>%K 범위</th><th>의미</th><th>매매 신호</th></tr></thead>
+                <tbody>
+                    <tr><td>&lt; 15</td><td>극심한 과매도</td><td><span class="badge badge-buy">강한 매수</span> (RSI 동시 과매도 시)</td></tr>
+                    <tr><td>&lt; 20</td><td>과매도</td><td><span class="badge badge-buy">매수 관심</span></td></tr>
+                    <tr><td>20 ~ 30</td><td>과매도 탈출 구간</td><td>Bullish Cross 확인 시 <span class="badge badge-buy">매수</span></td></tr>
+                    <tr><td>40 ~ 70</td><td>중립~강세</td><td><span class="badge badge-neutral">장기 건강한 모멘텀</span></td></tr>
+                    <tr><td>&gt; 80</td><td>과매수</td><td><span class="badge badge-sell">주의</span></td></tr>
+                </tbody>
+            </table>
+
+            <h3>점수 배점</h3>
+            <div class="score-box">
+                <div><span class="label">단기 추천</span><br><span class="value">최대 8점</span></div>
+                <div><span class="label">장기 추천</span><br><span class="value">최대 5점</span></div>
+            </div>
+            <table>
+                <thead><tr><th>구분</th><th>조건</th><th>점수</th></tr></thead>
+                <tbody>
+                    <tr><td>단기</td><td>Stochastic + RSI 동시 과매도, %K &lt; 15</td><td>8점</td></tr>
+                    <tr><td>단기</td><td>Stochastic + RSI 동시 과매도</td><td>6점</td></tr>
+                    <tr><td>단기</td><td>Bullish Cross (과매도 구간 교차)</td><td>5점</td></tr>
+                    <tr><td>단기</td><td>단독 Stochastic 과매도</td><td>3점</td></tr>
+                    <tr><td>장기</td><td>%K 50~70 (건강한 모멘텀)</td><td>5점</td></tr>
+                    <tr><td>장기</td><td>%K 40~50 또는 70~75</td><td>3점</td></tr>
+                    <tr><td>장기</td><td>%K 30~40</td><td>1점</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- 12. TTM Squeeze -->
+        <div class="indicator-section" id="squeeze">
+            <h2>12. TTM Squeeze</h2>
+            <p class="subtitle">볼린저밴드와 켈트너채널의 상대적 위치로 변동성 수축(Squeeze)을 감지하고, 이후 방향성 돌파를 예측하는 지표</p>
+
+            <h3>계산 방식</h3>
+            <div class="formula">
+볼린저밴드: 20일 SMA &plusmn; 2&sigma;<br>
+켈트너채널: 20일 SMA &plusmn; 1.5 x ATR(20)<br>
+<br>
+Squeeze ON: 볼린저 하단 > 켈트너 하단 AND 볼린저 상단 < 켈트너 상단<br>
+           (볼린저가 켈트너 안에 들어감 = 변동성 수축)<br>
+Squeeze OFF: 볼린저가 켈트너 밖으로 나옴 (변동성 폭발/돌파)<br>
+<br>
+모멘텀 = 종가 - (Donchian 중심선 + 볼린저 SMA) / 2<br>
+모멘텀 방향: increasing (상승) / decreasing (하락)
+            </div>
+
+            <h3>파라미터</h3>
+            <dl class="params">
+                <dt>볼린저밴드</dt><dd>20일, 2&sigma;</dd>
+                <dt>켈트너채널</dt><dd>20일, 1.5 ATR</dd>
+            </dl>
+
+            <h3>값별 해석</h3>
+            <table>
+                <thead><tr><th>상태</th><th>모멘텀</th><th>의미</th><th>매매 신호</th></tr></thead>
+                <tbody>
+                    <tr><td>Squeeze ON</td><td>상승 (increasing)</td><td>변동성 수축 + 상방 에너지 축적</td><td><span class="badge badge-buy">매수 준비</span> (5일+ 연속 시 강함)</td></tr>
+                    <tr><td>Squeeze ON</td><td>하락</td><td>변동성 수축 + 하방 압력</td><td><span class="badge badge-caution">관망</span> (과매도 시 반등 가능)</td></tr>
+                    <tr><td>Squeeze OFF</td><td>상승 (increasing)</td><td>돌파 진행 중</td><td><span class="badge badge-buy">매수</span> 추세 시작</td></tr>
+                    <tr><td>Squeeze OFF</td><td>하락</td><td>하방 돌파</td><td><span class="badge badge-sell">주의</span></td></tr>
+                </tbody>
+            </table>
+
+            <h3>점수 배점</h3>
+            <div class="score-box">
+                <div><span class="label">단기 추천</span><br><span class="value">최대 7점</span></div>
+                <div><span class="label">장기 추천</span><br><span class="value">최대 8점</span></div>
+            </div>
+            <table>
+                <thead><tr><th>구분</th><th>조건</th><th>점수</th></tr></thead>
+                <tbody>
+                    <tr><td>단기</td><td>Squeeze ON + 상승 모멘텀 + 5일+ 연속</td><td>7점</td></tr>
+                    <tr><td>단기</td><td>Squeeze ON + 상승 모멘텀</td><td>5점</td></tr>
+                    <tr><td>단기</td><td>Squeeze ON + 하락 모멘텀 (과매도 시)</td><td>2점</td></tr>
+                    <tr><td>단기</td><td>Squeeze OFF + 상승 모멘텀 (increasing)</td><td>4점</td></tr>
+                    <tr><td>장기</td><td>Squeeze OFF + 상승 모멘텀 (increasing)</td><td>8점</td></tr>
+                    <tr><td>장기</td><td>Squeeze OFF + 상승 모멘텀</td><td>5점</td></tr>
+                    <tr><td>장기</td><td>Squeeze ON + 상승 모멘텀 + 5일+</td><td>6점</td></tr>
+                    <tr><td>장기</td><td>Squeeze ON + 상승 모멘텀</td><td>4점</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- 추천 시스템 설명 -->
+        <div class="info-section" id="recommendation">
+            <h2>추천 시스템 설명</h2>
+
+            <h3>단기 vs 장기 추천 차이점</h3>
+            <div class="comparison-grid">
+                <div class="comparison-card short-term">
+                    <h4>단기 추천 (Enhanced)</h4>
+                    <ul>
+                        <li>전략: 평균 회귀 (Mean Reversion)</li>
+                        <li>보유 기간: 1~4주</li>
+                        <li>핵심 원리: 과매도 종목의 반등 포착</li>
+                        <li>핵심 지표: RSI, 볼린저밴드, 거래량</li>
+                        <li>ADX 선호: 약한 추세 (&lt;25) = 회귀 유효</li>
+                        <li>최소 점수: 50점 이상</li>
+                        <li>100점 만점 가중치 합산 시스템</li>
+                    </ul>
+                </div>
+                <div class="comparison-card long-term">
+                    <h4>장기 추천 (Trend Following)</h4>
+                    <ul>
+                        <li>전략: 추세 추종 (Trend Following)</li>
+                        <li>보유 기간: 1~3개월</li>
+                        <li>핵심 원리: 상승 추세 종목에 합류</li>
+                        <li>핵심 지표: ADX, 상대강도, MACD</li>
+                        <li>ADX 선호: 강한 상승 (&ge;30, bullish)</li>
+                        <li>최소 점수: 40점 이상</li>
+                        <li>상위 3개 종목 추천</li>
+                    </ul>
+                </div>
+            </div>
+
+            <h3>필터링 조건</h3>
+            <p style="font-size: 13px; color: #6b7280; margin-bottom: 10px;">아래 조건에 해당하는 종목은 점수와 무관하게 추천에서 제외됩니다.</p>
+
+            <table>
+                <thead><tr><th>필터</th><th>적용 대상</th><th>조건</th><th>이유</th></tr></thead>
+                <tbody>
+                    <tr>
+                        <td>Falling Knife</td>
+                        <td>단기</td>
+                        <td>ADX &gt; 25 + bearish</td>
+                        <td>강한 하락 추세에서의 매수는 위험</td>
+                    </tr>
+                    <tr>
+                        <td>저거래량 과매도</td>
+                        <td>단기</td>
+                        <td>과매도 + 거래량 &lt; 0.7x</td>
+                        <td>거래량 없는 과매도는 반등 신뢰도 낮음</td>
+                    </tr>
+                    <tr>
+                        <td>R:R 비율</td>
+                        <td>단기</td>
+                        <td>R:R &lt; 2:1</td>
+                        <td>리스크 대비 수익률이 불리</td>
+                    </tr>
+                    <tr>
+                        <td>추세 방향</td>
+                        <td>장기</td>
+                        <td>칼만 velocity &le; 0</td>
+                        <td>상승 추세가 아닌 종목 제외</td>
+                    </tr>
+                    <tr>
+                        <td>추세 방향</td>
+                        <td>장기</td>
+                        <td>ADX bearish</td>
+                        <td>하락 추세 종목 제외</td>
+                    </tr>
+                    <tr>
+                        <td>과매수</td>
+                        <td>장기</td>
+                        <td>RSI &ge; 75</td>
+                        <td>이미 과열된 종목 제외</td>
+                    </tr>
+                    <tr>
+                        <td>거래량 부족</td>
+                        <td>장기</td>
+                        <td>거래량 비율 &lt; 0.7</td>
+                        <td>관심도 낮은 종목 제외</td>
+                    </tr>
+                    <tr>
+                        <td>지수 ETF 제외</td>
+                        <td>장기</td>
+                        <td>SPY, QQQ, DIA, IWM</td>
+                        <td>개별 종목만 추천 대상</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>신뢰도 등급 (단기 추천)</h3>
+            <table class="confidence-table">
+                <thead><tr><th>등급</th><th>점수</th><th>의미</th></tr></thead>
+                <tbody>
+                    <tr><td><span class="badge badge-buy">High</span></td><td>&ge; 70점</td><td>복수 지표 일치, 높은 신뢰도. 보유기간 2~4주 권장</td></tr>
+                    <tr><td><span class="badge badge-neutral">Medium</span></td><td>50 ~ 69점</td><td>일부 지표 일치, 중간 신뢰도. 소량 진입 후 확인</td></tr>
+                    <tr><td colspan="3" style="color: #6b7280; font-size: 13px;">50점 미만은 추천 대상에서 제외</td></tr>
+                </tbody>
+            </table>
+
+            <h3>점수 요약 (100점 만점)</h3>
+            <table>
+                <thead><tr><th>지표</th><th>단기 배점</th><th>장기 배점</th><th>핵심 역할</th></tr></thead>
+                <tbody>
+                    <tr><td>RSI</td><td>15점</td><td>8점</td><td>과매도 감지 / 건강한 모멘텀</td></tr>
+                    <tr><td>ADX</td><td>12점</td><td>15점</td><td>추세 약화 확인 / 추세 강도</td></tr>
+                    <tr><td>MACD</td><td>12점</td><td>12점</td><td>추세 전환 / 모멘텀 유지</td></tr>
+                    <tr><td>볼린저밴드</td><td>12점</td><td>8점</td><td>가격 위치 / SMA 위 건강성</td></tr>
+                    <tr><td>거래량</td><td>10점</td><td>8점</td><td>신호 확인 / 관심도</td></tr>
+                    <tr><td>상대강도</td><td>8점</td><td>12점</td><td>시장 대비 성과</td></tr>
+                    <tr><td>52주 위치</td><td>8점</td><td>8점</td><td>저점 근접 / 성장 여력</td></tr>
+                    <tr><td>OBV</td><td>8점</td><td>8점</td><td>매집/분산 감지</td></tr>
+                    <tr><td>Stochastic</td><td>8점</td><td>5점</td><td>과매도 보조 확인</td></tr>
+                    <tr><td>TTM Squeeze</td><td>7점</td><td>8점</td><td>변동성 폭발 감지</td></tr>
+                    <tr><td><strong>합계</strong></td><td><strong>100점</strong></td><td><strong>100점 (+칼만 8점)</strong></td><td></td></tr>
+                </tbody>
+            </table>
+            <p style="font-size: 12px; color: #6b7280; margin-top: 6px;">장기 추천은 11개 지표 (칼만 필터 포함) 합산 최대 108점이며, 단기 추천에서 칼만 필터는 점수 배점 없이 목표가 계산에만 사용됩니다.</p>
+        </div>
+
+        <div class="footer">
+            <p>US Stock Report - 기술적 지표 가이드</p>
+            <p>본 자료는 기술적 분석 참고용이며, 투자 결정은 본인의 판단하에 이루어져야 합니다.</p>
+        </div>
+    </div>
+
+    <button class="back-to-top" onclick="window.scrollTo({top:0,behavior:'smooth'})" id="backToTop" aria-label="맨 위로 이동">&#8593;</button>
+    <script>
+        window.addEventListener('scroll', function() {
+            var btn = document.getElementById('backToTop');
+            btn.style.display = window.scrollY > 400 ? 'flex' : 'none';
+        });
+    </script>
+</body>
+</html>

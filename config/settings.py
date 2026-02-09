@@ -62,27 +62,52 @@ class AnalysisSettings(BaseSettings):
     kalman_measurement_variance: float = Field(default=1e-2, alias="KALMAN_MEASUREMENT_VARIANCE")
     kalman_blend_alpha: float = Field(default=0.5, alias="KALMAN_BLEND_ALPHA")
 
-    # Scoring Weights
-    weight_rsi: int = Field(default=20, alias="WEIGHT_RSI")
-    weight_volume: int = Field(default=15, alias="WEIGHT_VOLUME")
-    weight_adx: int = Field(default=15, alias="WEIGHT_ADX")
-    weight_macd: int = Field(default=15, alias="WEIGHT_MACD")
-    weight_bollinger: int = Field(default=15, alias="WEIGHT_BOLLINGER")
-    weight_relative_strength: int = Field(default=10, alias="WEIGHT_RELATIVE_STRENGTH")
-    weight_52week: int = Field(default=10, alias="WEIGHT_52WEEK")
+    # OBV (On Balance Volume)
+    obv_sma_period: int = Field(default=20, alias="OBV_SMA_PERIOD")
+
+    # Stochastic Oscillator
+    stochastic_k_period: int = Field(default=14, alias="STOCHASTIC_K_PERIOD")
+    stochastic_d_period: int = Field(default=3, alias="STOCHASTIC_D_PERIOD")
+    stochastic_oversold: int = Field(default=20, alias="STOCHASTIC_OVERSOLD")
+    stochastic_overbought: int = Field(default=80, alias="STOCHASTIC_OVERBOUGHT")
+
+    # TTM Squeeze
+    squeeze_bb_period: int = Field(default=20, alias="SQUEEZE_BB_PERIOD")
+    squeeze_bb_mult: float = Field(default=2.0, alias="SQUEEZE_BB_MULT")
+    squeeze_kc_period: int = Field(default=20, alias="SQUEEZE_KC_PERIOD")
+    squeeze_kc_mult: float = Field(default=1.5, alias="SQUEEZE_KC_MULT")
+
+    # Scoring Weights (총합 100점 유지)
+    # 기존: RSI(20) + Volume(15) + ADX(15) + MACD(15) + BB(15) + RS(10) + 52W(10) = 100
+    # 변경: RSI(15) + Volume(10) + ADX(12) + MACD(12) + BB(12) + RS(8) + 52W(8) + OBV(8) + Stoch(8) + Squeeze(7) = 100
+    weight_rsi: int = Field(default=15, alias="WEIGHT_RSI")
+    weight_volume: int = Field(default=10, alias="WEIGHT_VOLUME")
+    weight_adx: int = Field(default=12, alias="WEIGHT_ADX")
+    weight_macd: int = Field(default=12, alias="WEIGHT_MACD")
+    weight_bollinger: int = Field(default=12, alias="WEIGHT_BOLLINGER")
+    weight_relative_strength: int = Field(default=8, alias="WEIGHT_RELATIVE_STRENGTH")
+    weight_52week: int = Field(default=8, alias="WEIGHT_52WEEK")
+    weight_obv: int = Field(default=8, alias="WEIGHT_OBV")
+    weight_stochastic: int = Field(default=8, alias="WEIGHT_STOCHASTIC")
+    weight_squeeze: int = Field(default=7, alias="WEIGHT_SQUEEZE")
     min_recommendation_score: int = Field(default=50, alias="MIN_RECOMMENDATION_SCORE")
 
-    # Long-term Recommendation
+    # Long-term Recommendation (총합 100점 유지)
+    # 기존: RSI(10) + MACD(15) + BB(10) + Vol(10) + ADX(20) + RS(15) + 52W(10) + Kalman(10) = 100
+    # 변경: RSI(8) + MACD(12) + BB(8) + Vol(8) + ADX(15) + RS(12) + 52W(8) + Kalman(8) + OBV(8) + Stoch(5) + Squeeze(8) = 100
     longterm_top_n: int = Field(default=3, alias="LONGTERM_TOP_N")
     longterm_min_score: int = Field(default=40, alias="LONGTERM_MIN_SCORE")
-    longterm_weight_rsi: int = Field(default=10, alias="LONGTERM_WEIGHT_RSI")
-    longterm_weight_macd: int = Field(default=15, alias="LONGTERM_WEIGHT_MACD")
-    longterm_weight_bollinger: int = Field(default=10, alias="LONGTERM_WEIGHT_BOLLINGER")
-    longterm_weight_volume: int = Field(default=10, alias="LONGTERM_WEIGHT_VOLUME")
-    longterm_weight_adx: int = Field(default=20, alias="LONGTERM_WEIGHT_ADX")
-    longterm_weight_relative_strength: int = Field(default=15, alias="LONGTERM_WEIGHT_RELATIVE_STRENGTH")
-    longterm_weight_week52: int = Field(default=10, alias="LONGTERM_WEIGHT_52WEEK")
-    longterm_weight_kalman: int = Field(default=10, alias="LONGTERM_WEIGHT_KALMAN")
+    longterm_weight_rsi: int = Field(default=8, alias="LONGTERM_WEIGHT_RSI")
+    longterm_weight_macd: int = Field(default=12, alias="LONGTERM_WEIGHT_MACD")
+    longterm_weight_bollinger: int = Field(default=8, alias="LONGTERM_WEIGHT_BOLLINGER")
+    longterm_weight_volume: int = Field(default=8, alias="LONGTERM_WEIGHT_VOLUME")
+    longterm_weight_adx: int = Field(default=15, alias="LONGTERM_WEIGHT_ADX")
+    longterm_weight_relative_strength: int = Field(default=12, alias="LONGTERM_WEIGHT_RELATIVE_STRENGTH")
+    longterm_weight_week52: int = Field(default=8, alias="LONGTERM_WEIGHT_52WEEK")
+    longterm_weight_kalman: int = Field(default=8, alias="LONGTERM_WEIGHT_KALMAN")
+    longterm_weight_obv: int = Field(default=8, alias="LONGTERM_WEIGHT_OBV")
+    longterm_weight_stochastic: int = Field(default=5, alias="LONGTERM_WEIGHT_STOCHASTIC")
+    longterm_weight_squeeze: int = Field(default=8, alias="LONGTERM_WEIGHT_SQUEEZE")
 
 
 class SlackSettings(BaseSettings):

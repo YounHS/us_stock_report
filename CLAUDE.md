@@ -46,7 +46,7 @@ python main.py --test-slack # 테스트 Slack 메시지 발송
 - **config/sp500_tickers.py**: Wikipedia에서 S&P 500 종목 스크래핑 (User-Agent 필수), 11개 GICS 섹터 매핑
 - **data/fetcher.py**: `yfinance`로 OHLCV 배치 다운로드. `StockDataFetcher.fetch_batch()` 사용
 - **data/calendar.py**: 경제 캘린더(`EconomicCalendar`) 및 실적 발표 일정(`EarningsCalendar`) 수집
-- **analysis/technical.py**: RSI, MACD, 볼린저밴드, ADX, ATR, 거래량, 상대강도, 52주 위치, 칼만 필터 계산. 결과는 dataclass로 반환 (`RSIResult`, `MACDResult`, `BollingerResult`, `ADXResult`, `ATRResult`, `VolumeResult`, `RelativeStrengthResult`, `Week52Result`, `KalmanResult`)
+- **analysis/technical.py**: RSI, MACD, 볼린저밴드, ADX, ATR, 거래량, 상대강도, 52주 위치, 칼만 필터, OBV, Stochastic, TTM Squeeze 계산. 결과는 dataclass로 반환 (`RSIResult`, `MACDResult`, `BollingerResult`, `ADXResult`, `ATRResult`, `VolumeResult`, `RelativeStrengthResult`, `Week52Result`, `KalmanResult`, `OBVResult`, `StochasticResult`, `SqueezeResult`)
 - **analysis/signals.py**: `SignalDetector`가 분석 결과에서 매수 신호 감지. 세 가지 추천 방식 제공:
   - `get_enhanced_recommendation()`: 가중치 점수 시스템 기반 단기 추천 (우선 사용)
   - `get_top_recommendation()`: 레거시 방식 (Enhanced 실패 시 폴백)
@@ -74,6 +74,9 @@ python main.py --test-slack # 테스트 Slack 메시지 발송
 - MACD: 12/26/9 EMA
 - 볼린저밴드: 20일 SMA ± 2σ, Z-score로 1시그마 근접 판별 (-1.2 ≤ z ≤ -0.8)
 - 칼만 필터: process_variance=1e-5, measurement_variance=1e-2, blend_alpha=0.5 (Bollinger SMA와 블렌딩)
+- OBV: 20일 SMA 기준, 매집(accumulation)/분산(distribution)/중립(neutral) 추세 판별
+- Stochastic: %K=14일, %D=3일 SMA, 과매도(<20), 과매수(>80)
+- TTM Squeeze: 볼린저밴드 20일/2σ, 켈트너채널 20일/1.5ATR. Squeeze ON = 변동성 수축
 
 ### 추천 종목 선정 로직
 
@@ -97,13 +100,14 @@ python main.py --test-slack # 테스트 Slack 메시지 발송
 - 추세 추종(Trend-Following) 전략 기반, 단기 추천과 별도 운영
 - 하드 필터: Kalman velocity > 0, ADX 방향 != bearish, RSI < 75, 거래량 비율 >= 0.7
 - SPY, QQQ, DIA, IWM 제외
-- 가중치 합계 100점: ADX(20) > MACD/상대강도(15) > RSI/볼린저/거래량/52주/칼만(10)
+- 가중치 합계 100점: ADX(15) > MACD/상대강도(12) > RSI/볼린저/거래량/52주/칼만/OBV/Squeeze(8) > Stochastic(5)
 - 최소 점수(`longterm_min_score`) 이상만 추천 대상, 점수 내림차순 Top N
 
-**추천에 포함되는 기술적 지표**:
+**추천에 포함되는 기술적 지표** (12개):
 - RSI, ADX, MACD (골든크로스 여부), 볼린저밴드 Z-Score
 - 거래량 비율, ATR%, SPY 대비 상대강도(20일), 52주 위치
 - 칼만 필터 예측가, 추세 속도
+- OBV 추세 (매집/분산), Stochastic %K, TTM Squeeze 상태
 - 손절가, 리스크:리워드 비율
 
 ### 설정 구조
@@ -128,6 +132,9 @@ recommendation = {
     "week52_position",                         # 52주 위치
     "kalman_predicted_price",                  # 칼만 예측가
     "kalman_trend_velocity",                   # 칼만 추세 속도
+    "obv_trend",                               # OBV 추세 (accumulation/distribution/neutral)
+    "stochastic_k",                            # Stochastic %K
+    "squeeze_status", "squeeze_momentum",      # TTM Squeeze 상태 및 모멘텀
     "target_price", "target_return",           # 목표가 (칼만+볼린저 블렌딩)
     "stop_loss", "risk_reward_ratio",          # 리스크 관리 (Enhanced만)
     "score", "confidence", "score_breakdown",  # 점수 시스템 (Enhanced만)
@@ -137,8 +144,26 @@ recommendation = {
 }
 ```
 
+**ScoreBreakdown (점수 구성 상세)**:
+```python
+score_breakdown = {
+    "rsi_score", "volume_score", "adx_score",        # 최대 15/10/12점
+    "macd_score", "bollinger_score",                 # 최대 12/12점
+    "relative_strength_score", "week52_score",       # 최대 8/8점
+    "obv_score", "stochastic_score", "squeeze_score" # 최대 8/8/7점 (총합 100점)
+}
+```
+
 템플릿에서 `is not none` 체크로 None 값 처리. Enhanced 전용 필드는 Legacy 사용 시 main.py에서 기본값 설정.
 `recommendation_method` 필드로 리포트/Slack에 사용된 추천 방식(Enhanced/Legacy) 표시.
+
+### 기술적 지표 설명 페이지 (GitHub Pages)
+
+- **`docs/index.html`**: 12개 기술적 지표의 계산 방식, 파라미터, 값별 해석, 점수 배점을 설명하는 정적 HTML 페이지
+- GitHub Pages로 배포: `https://younhs.github.io/us_stock_report/` (repo Settings → Pages → Source: `docs/`)
+- `daily_report.html`의 단기/장기 추천 섹션에 "지표 설명 보기" 링크가 해당 URL로 연결됨
+- 순수 HTML+CSS로 구성 (외부 의존성 없음, 반응형 지원)
+- 지표 추가/배점 변경 시 `docs/index.html`도 함께 업데이트 필요
 
 ## 주의사항
 

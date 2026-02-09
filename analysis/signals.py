@@ -31,6 +31,9 @@ class ScoreBreakdown:
     bollinger_score: int = 0
     relative_strength_score: int = 0
     week52_score: int = 0
+    obv_score: int = 0
+    stochastic_score: int = 0
+    squeeze_score: int = 0
 
     @property
     def total(self) -> int:
@@ -42,6 +45,9 @@ class ScoreBreakdown:
             + self.bollinger_score
             + self.relative_strength_score
             + self.week52_score
+            + self.obv_score
+            + self.stochastic_score
+            + self.squeeze_score
         )
 
 
@@ -497,6 +503,89 @@ class SignalDetector:
 
         return 0
 
+    def _calculate_obv_score(self, analysis: Dict) -> int:
+        """OBV 점수 계산 (최대 weight_obv점)"""
+        obv = analysis.get("obv")
+        rsi = analysis.get("rsi")
+
+        if not obv:
+            return 0
+
+        weight = settings.analysis.weight_obv
+
+        # Bullish divergence (가격 하락 중 OBV 상승) = 강한 매집 신호
+        if obv.is_bullish_divergence:
+            return weight
+
+        # 매집 구간 + 과매도
+        if obv.obv_trend == "accumulation":
+            if rsi and rsi.is_oversold:
+                return int(weight * 0.9)  # 과매도 + 매집 = 바닥 신호
+            return int(weight * 0.6)
+
+        # 분산 구간 = 페널티
+        if obv.obv_trend == "distribution":
+            return -int(weight * 0.5)
+
+        return 0
+
+    def _calculate_stochastic_score(self, analysis: Dict) -> int:
+        """Stochastic 점수 계산 (최대 weight_stochastic점)"""
+        stochastic = analysis.get("stochastic")
+        rsi = analysis.get("rsi")
+
+        if not stochastic:
+            return 0
+
+        weight = settings.analysis.weight_stochastic
+
+        # RSI + Stochastic 동시 과매도 = 강한 반등 신호
+        if stochastic.is_oversold and rsi and rsi.is_oversold:
+            if stochastic.k < 15:  # 극심한 과매도
+                return weight
+            return int(weight * 0.8)
+
+        # Stochastic bullish cross in oversold zone
+        if stochastic.is_bullish_cross:
+            return int(weight * 0.7)
+
+        # 단독 Stochastic 과매도
+        if stochastic.is_oversold:
+            return int(weight * 0.4)
+
+        return 0
+
+    def _calculate_squeeze_score(self, analysis: Dict) -> int:
+        """Squeeze 점수 계산 (최대 weight_squeeze점)"""
+        squeeze = analysis.get("squeeze")
+        rsi = analysis.get("rsi")
+
+        if not squeeze:
+            return 0
+
+        weight = settings.analysis.weight_squeeze
+
+        # Squeeze ON + 상승 모멘텀 = 곧 상방 돌파 예상
+        if squeeze.is_squeeze_on and squeeze.momentum > 0:
+            if squeeze.momentum_direction == "increasing":
+                # 연속 squeeze 일수에 따른 보너스 (오래 눌릴수록 폭발력 큼)
+                if squeeze.squeeze_count >= 5:
+                    return weight
+                return int(weight * 0.8)
+            return int(weight * 0.5)
+
+        # Squeeze 해제 직후 + 상승 모멘텀 = 돌파 진행 중
+        if not squeeze.is_squeeze_on and squeeze.momentum > 0:
+            if squeeze.momentum_direction == "increasing":
+                return int(weight * 0.6)
+
+        # Squeeze ON + 하락 모멘텀 (과매도 중이면 반등 준비)
+        if squeeze.is_squeeze_on and squeeze.momentum < 0:
+            if rsi and rsi.is_oversold:
+                return int(weight * 0.4)
+
+        return 0
+
     def _should_filter_out(self, analysis: Dict, score_breakdown: ScoreBreakdown) -> tuple[bool, str]:
         """
         필터링 조건 체크
@@ -548,6 +637,9 @@ class SignalDetector:
                 bollinger_score=self._calculate_bollinger_score(analysis),
                 relative_strength_score=self._calculate_relative_strength_score(analysis),
                 week52_score=self._calculate_week52_score(analysis),
+                obv_score=self._calculate_obv_score(analysis),
+                stochastic_score=self._calculate_stochastic_score(analysis),
+                squeeze_score=self._calculate_squeeze_score(analysis),
             )
 
             total_score = score_breakdown.total
@@ -590,6 +682,9 @@ class SignalDetector:
         week52 = best_analysis.get("week52")
         atr = best_analysis.get("atr")
         kalman = best_analysis.get("kalman")
+        obv = best_analysis.get("obv")
+        stochastic = best_analysis.get("stochastic")
+        squeeze = best_analysis.get("squeeze")
 
         # Bullish factors
         if rsi and rsi.is_oversold:
@@ -613,6 +708,20 @@ class SignalDetector:
         if adx and adx.trend_strength == "weak":
             bullish_factors.append("약한 추세 (평균회귀 유효)")
 
+        # 새 지표 bullish factors
+        if obv and obv.is_bullish_divergence:
+            bullish_factors.append("OBV 다이버전스 (매집 신호)")
+        elif obv and obv.obv_trend == "accumulation":
+            bullish_factors.append("OBV 매집 구간")
+
+        if stochastic and stochastic.is_oversold and rsi and rsi.is_oversold:
+            bullish_factors.append(f"Stochastic+RSI 동시 과매도 (%K: {stochastic.k:.1f})")
+        elif stochastic and stochastic.is_bullish_cross:
+            bullish_factors.append("Stochastic 상향 돌파")
+
+        if squeeze and squeeze.is_squeeze_on and squeeze.momentum > 0:
+            bullish_factors.append(f"Squeeze ON + 상승 모멘텀 ({squeeze.squeeze_count}일 연속)")
+
         # Warning factors
         if adx and adx.trend_direction == "bearish":
             warning_factors.append("하락 추세 지속 중")
@@ -625,6 +734,16 @@ class SignalDetector:
 
         if week52 and week52.current_position_pct > 50:
             warning_factors.append("52주 중간 이상 위치")
+
+        # 새 지표 warning factors
+        if obv and obv.obv_trend == "distribution":
+            warning_factors.append("OBV 분산 구간 (매도 압력)")
+
+        if stochastic and stochastic.is_overbought:
+            warning_factors.append(f"Stochastic 과매수 (%K: {stochastic.k:.1f})")
+
+        if squeeze and squeeze.momentum < 0 and squeeze.momentum_direction == "decreasing":
+            warning_factors.append("Squeeze 하락 모멘텀 악화")
 
         # 목표가 및 손절가
         close_price = best_analysis.get("close", 0)
@@ -660,6 +779,12 @@ class SignalDetector:
             primary_factors.append("볼린저밴드")
         if best_breakdown.volume_score > 0:
             primary_factors.append("거래량")
+        if best_breakdown.obv_score > 0:
+            primary_factors.append("OBV")
+        if best_breakdown.stochastic_score > 0:
+            primary_factors.append("Stochastic")
+        if best_breakdown.squeeze_score > 0:
+            primary_factors.append("Squeeze")
 
         source = f"가중치 점수 시스템 ({', '.join(primary_factors[:3])})"
 
@@ -858,6 +983,78 @@ class SignalDetector:
             return int(weight * 0.4)
         return 0
 
+    def _longterm_obv_score(self, analysis: Dict) -> int:
+        """장기 OBV 점수 (최대 longterm_weight_obv점) — 매집 구간 확인"""
+        obv = analysis.get("obv")
+        if not obv:
+            return 0
+
+        weight = settings.analysis.longterm_weight_obv
+
+        # 매집 구간 = 기관/세력 매수 중
+        if obv.obv_trend == "accumulation":
+            if obv.obv > obv.obv_sma:  # OBV가 평균 위
+                return weight
+            return int(weight * 0.7)
+
+        # 다이버전스 (장기에서는 중립적)
+        if obv.is_bullish_divergence:
+            return int(weight * 0.5)
+
+        # 분산 구간 = 매도 압력
+        if obv.obv_trend == "distribution":
+            return 0
+
+        return int(weight * 0.3)  # neutral
+
+    def _longterm_stochastic_score(self, analysis: Dict) -> int:
+        """장기 Stochastic 점수 (최대 longterm_weight_stochastic점) — 건강한 모멘텀 구간"""
+        stochastic = analysis.get("stochastic")
+        if not stochastic:
+            return 0
+
+        weight = settings.analysis.longterm_weight_stochastic
+        k = stochastic.k
+
+        # 장기 투자에서는 50-70 구간이 건강한 상승 모멘텀
+        if 50 <= k <= 70:
+            return weight
+        elif 40 <= k < 50 or 70 < k <= 75:
+            return int(weight * 0.6)
+        elif 30 <= k < 40:
+            return int(weight * 0.3)
+        # 과매수 구간 = 주의
+        elif k > 80:
+            return 0
+
+        return 0
+
+    def _longterm_squeeze_score(self, analysis: Dict) -> int:
+        """장기 Squeeze 점수 (최대 longterm_weight_squeeze점) — Squeeze 해제 + 상승 모멘텀"""
+        squeeze = analysis.get("squeeze")
+        if not squeeze:
+            return 0
+
+        weight = settings.analysis.longterm_weight_squeeze
+
+        # Squeeze 해제 직후 + 상승 모멘텀 = 추세 시작
+        if not squeeze.is_squeeze_on and squeeze.momentum > 0:
+            if squeeze.momentum_direction == "increasing":
+                return weight
+            return int(weight * 0.7)
+
+        # Squeeze ON + 상승 모멘텀 = 곧 돌파 예상
+        if squeeze.is_squeeze_on and squeeze.momentum > 0:
+            if squeeze.squeeze_count >= 5:
+                return int(weight * 0.8)
+            return int(weight * 0.5)
+
+        # 하락 모멘텀
+        if squeeze.momentum < 0:
+            return 0
+
+        return int(weight * 0.3)
+
     def get_longterm_recommendations(self) -> List[Dict]:
         """
         장기 투자 추천 종목 선정 (추세 추종 기반)
@@ -872,7 +1069,7 @@ class SignalDetector:
             if not self._longterm_passes_hard_filters(ticker, analysis):
                 continue
 
-            # 8개 점수 합산
+            # 11개 점수 합산
             rsi_sc = self._longterm_rsi_score(analysis)
             macd_sc = self._longterm_macd_score(analysis)
             bollinger_sc = self._longterm_bollinger_score(analysis)
@@ -881,8 +1078,12 @@ class SignalDetector:
             rs_sc = self._longterm_relative_strength_score(analysis)
             week52_sc = self._longterm_week52_score(analysis)
             kalman_sc = self._longterm_kalman_score(analysis)
+            obv_sc = self._longterm_obv_score(analysis)
+            stochastic_sc = self._longterm_stochastic_score(analysis)
+            squeeze_sc = self._longterm_squeeze_score(analysis)
 
-            total = rsi_sc + macd_sc + bollinger_sc + volume_sc + adx_sc + rs_sc + week52_sc + kalman_sc
+            total = (rsi_sc + macd_sc + bollinger_sc + volume_sc + adx_sc +
+                     rs_sc + week52_sc + kalman_sc + obv_sc + stochastic_sc + squeeze_sc)
 
             if total < settings.analysis.longterm_min_score:
                 continue
@@ -896,6 +1097,9 @@ class SignalDetector:
                 "relative_strength": rs_sc,
                 "week52": week52_sc,
                 "kalman": kalman_sc,
+                "obv": obv_sc,
+                "stochastic": stochastic_sc,
+                "squeeze": squeeze_sc,
             }, analysis))
 
         # 점수 내림차순
@@ -914,10 +1118,13 @@ class SignalDetector:
             week52 = analysis.get("week52")
             kalman = analysis.get("kalman")
             atr = analysis.get("atr")
+            obv = analysis.get("obv")
+            stochastic = analysis.get("stochastic")
+            squeeze = analysis.get("squeeze")
             close = analysis.get("close", 0)
             change_pct = analysis.get("change_pct", 0)
 
-            # 투자 근거 수집 (상위 4개)
+            # 투자 근거 수집 (상위 5개)
             reasons = []
             if adx and adx.trend_direction == "bullish":
                 reasons.append(f"ADX {adx.adx:.1f} — 상승 추세 확인")
@@ -928,12 +1135,16 @@ class SignalDetector:
             if kalman:
                 vel_pct = (kalman.trend_velocity / close * 100) if close else 0
                 reasons.append(f"칼만 추세 속도 +{vel_pct:.2f}%/일")
+            if obv and obv.obv_trend == "accumulation":
+                reasons.append("OBV 매집 구간 — 세력 매수 중")
+            if squeeze and not squeeze.is_squeeze_on and squeeze.momentum > 0:
+                reasons.append("Squeeze 해제 — 상승 돌파 진행")
             if rsi:
                 reasons.append(f"RSI {rsi.value:.1f} — 건강한 모멘텀 구간")
             if week52:
                 reasons.append(f"52주 {week52.current_position_pct:.0f}% 위치 — 성장 여력")
 
-            reasons = reasons[:4]
+            reasons = reasons[:5]
 
             rec = {
                 "ticker": ticker,
@@ -952,6 +1163,11 @@ class SignalDetector:
                 "atr_pct": round(atr.atr / close * 100, 2) if atr and close else None,
                 "relative_strength_20d": round(rs.rs_20d, 1) if rs else None,
                 "week52_position": round(week52.current_position_pct, 1) if week52 else None,
+                # 새 지표
+                "obv_trend": obv.obv_trend if obv else None,
+                "stochastic_k": round(stochastic.k, 1) if stochastic else None,
+                "squeeze_status": "ON" if squeeze and squeeze.is_squeeze_on else ("OFF" if squeeze else None),
+                "squeeze_momentum": squeeze.momentum_direction if squeeze else None,
                 "score_breakdown": breakdown,
             }
 

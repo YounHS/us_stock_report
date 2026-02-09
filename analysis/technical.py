@@ -90,6 +90,34 @@ class KalmanResult:
     blended_target: float      # Bollinger SMA와 블렌딩된 목표가
 
 
+@dataclass
+class OBVResult:
+    """OBV (On Balance Volume) 분석 결과"""
+    obv: float                 # 현재 OBV 값
+    obv_sma: float             # OBV 이동평균
+    obv_trend: str             # "accumulation", "distribution", "neutral"
+    is_bullish_divergence: bool  # 가격 횡보/하락 중 OBV 상승
+
+
+@dataclass
+class StochasticResult:
+    """Stochastic Oscillator 분석 결과"""
+    k: float                   # %K 값
+    d: float                   # %D 값 (K의 이동평균)
+    is_oversold: bool          # %K < 20
+    is_overbought: bool        # %K > 80
+    is_bullish_cross: bool     # %K가 %D를 상향 돌파 (과매도 구간에서)
+
+
+@dataclass
+class SqueezeResult:
+    """TTM Squeeze 분석 결과"""
+    is_squeeze_on: bool        # 볼린저가 켈트너 안에 있음 (변동성 수축)
+    momentum: float            # 모멘텀 값
+    momentum_direction: str    # "increasing", "decreasing"
+    squeeze_count: int         # 연속 squeeze 일수
+
+
 class TechnicalAnalyzer:
     """기술적 분석 지표 계산기"""
 
@@ -118,6 +146,21 @@ class TechnicalAnalyzer:
         self.kalman_process_variance = settings.analysis.kalman_process_variance
         self.kalman_measurement_variance = settings.analysis.kalman_measurement_variance
         self.kalman_blend_alpha = settings.analysis.kalman_blend_alpha
+
+        # OBV settings
+        self.obv_sma_period = settings.analysis.obv_sma_period
+
+        # Stochastic settings
+        self.stochastic_k_period = settings.analysis.stochastic_k_period
+        self.stochastic_d_period = settings.analysis.stochastic_d_period
+        self.stochastic_oversold = settings.analysis.stochastic_oversold
+        self.stochastic_overbought = settings.analysis.stochastic_overbought
+
+        # Squeeze settings
+        self.squeeze_bb_period = settings.analysis.squeeze_bb_period
+        self.squeeze_bb_mult = settings.analysis.squeeze_bb_mult
+        self.squeeze_kc_period = settings.analysis.squeeze_kc_period
+        self.squeeze_kc_mult = settings.analysis.squeeze_kc_mult
 
     def calculate_rsi(self, close_prices: pd.Series) -> Optional[RSIResult]:
         """
@@ -543,6 +586,204 @@ class TechnicalAnalyzer:
             blended_target=round(blended_target, 2),
         )
 
+    def calculate_obv(self, df: pd.DataFrame) -> Optional[OBVResult]:
+        """
+        OBV (On Balance Volume) 계산
+
+        OBV는 거래량 누적 지표로, 가격 상승일에는 거래량을 더하고
+        가격 하락일에는 거래량을 빼서 매집/분산 신호를 감지
+
+        Args:
+            df: OHLCV DataFrame (Close, Volume 컬럼 필수)
+
+        Returns:
+            OBVResult or None
+        """
+        if df.empty or not all(col in df.columns for col in ["Close", "Volume"]):
+            return None
+
+        if len(df) < self.obv_sma_period + 1:
+            return None
+
+        close = df["Close"]
+        volume = df["Volume"]
+
+        # OBV 계산
+        obv = pd.Series(index=df.index, dtype=float)
+        obv.iloc[0] = 0
+
+        for i in range(1, len(df)):
+            if close.iloc[i] > close.iloc[i - 1]:
+                obv.iloc[i] = obv.iloc[i - 1] + volume.iloc[i]
+            elif close.iloc[i] < close.iloc[i - 1]:
+                obv.iloc[i] = obv.iloc[i - 1] - volume.iloc[i]
+            else:
+                obv.iloc[i] = obv.iloc[i - 1]
+
+        current_obv = obv.iloc[-1]
+        obv_sma = obv.rolling(window=self.obv_sma_period).mean().iloc[-1]
+
+        # OBV 추세 판단 (최근 5일 기준)
+        obv_5d_ago = obv.iloc[-5] if len(obv) >= 5 else obv.iloc[0]
+        price_5d_ago = close.iloc[-5] if len(close) >= 5 else close.iloc[0]
+
+        obv_change = current_obv - obv_5d_ago
+        price_change = close.iloc[-1] - price_5d_ago
+
+        # 추세 판단
+        if obv_change > 0 and current_obv > obv_sma:
+            obv_trend = "accumulation"
+        elif obv_change < 0 and current_obv < obv_sma:
+            obv_trend = "distribution"
+        else:
+            obv_trend = "neutral"
+
+        # Bullish Divergence: 가격 횡보/하락 중 OBV 상승
+        is_bullish_divergence = (
+            obv_change > 0 and price_change <= 0 and current_obv > obv_sma
+        )
+
+        return OBVResult(
+            obv=round(current_obv, 0),
+            obv_sma=round(obv_sma, 0),
+            obv_trend=obv_trend,
+            is_bullish_divergence=is_bullish_divergence,
+        )
+
+    def calculate_stochastic(
+        self, close: pd.Series, high: pd.Series, low: pd.Series
+    ) -> Optional[StochasticResult]:
+        """
+        Stochastic Oscillator 계산
+
+        %K = (현재가 - N일 최저) / (N일 최고 - N일 최저) × 100
+        %D = %K의 M일 이동평균
+
+        Args:
+            close: 종가 시리즈
+            high: 고가 시리즈
+            low: 저가 시리즈
+
+        Returns:
+            StochasticResult or None
+        """
+        if len(close) < self.stochastic_k_period + self.stochastic_d_period:
+            return None
+
+        # %K 계산
+        lowest_low = low.rolling(window=self.stochastic_k_period).min()
+        highest_high = high.rolling(window=self.stochastic_k_period).max()
+
+        k = 100 * (close - lowest_low) / (highest_high - lowest_low).replace(0, np.inf)
+
+        # %D 계산 (K의 SMA)
+        d = k.rolling(window=self.stochastic_d_period).mean()
+
+        latest_k = k.iloc[-1]
+        latest_d = d.iloc[-1]
+
+        is_oversold = latest_k < self.stochastic_oversold
+        is_overbought = latest_k > self.stochastic_overbought
+
+        # Bullish cross in oversold zone
+        is_bullish_cross = False
+        if len(k) >= 2 and len(d) >= 2:
+            # 오늘 K > D, 어제 K <= D (in oversold zone)
+            today_above = latest_k > latest_d
+            yesterday_below = k.iloc[-2] <= d.iloc[-2]
+            in_oversold_zone = latest_k < 30  # 과매도 구간 근처에서의 교차
+            is_bullish_cross = today_above and yesterday_below and in_oversold_zone
+
+        return StochasticResult(
+            k=round(latest_k, 2),
+            d=round(latest_d, 2),
+            is_oversold=is_oversold,
+            is_overbought=is_overbought,
+            is_bullish_cross=is_bullish_cross,
+        )
+
+    def calculate_squeeze(self, df: pd.DataFrame) -> Optional[SqueezeResult]:
+        """
+        TTM Squeeze Indicator 계산
+
+        Squeeze ON: 볼린저밴드가 켈트너 채널 안에 있음 (변동성 수축)
+        Squeeze OFF: 볼린저밴드가 켈트너 채널 밖으로 나옴 (변동성 폭발)
+        Momentum: 가격 - Donchian 중심선의 선형회귀
+
+        Args:
+            df: OHLCV DataFrame (High, Low, Close 컬럼 필수)
+
+        Returns:
+            SqueezeResult or None
+        """
+        if df.empty or not all(col in df.columns for col in ["High", "Low", "Close"]):
+            return None
+
+        if len(df) < max(self.squeeze_bb_period, self.squeeze_kc_period) + 5:
+            return None
+
+        high = df["High"]
+        low = df["Low"]
+        close = df["Close"]
+
+        # 볼린저밴드 계산
+        bb_sma = close.rolling(window=self.squeeze_bb_period).mean()
+        bb_std = close.rolling(window=self.squeeze_bb_period).std()
+        bb_upper = bb_sma + (self.squeeze_bb_mult * bb_std)
+        bb_lower = bb_sma - (self.squeeze_bb_mult * bb_std)
+
+        # True Range for Keltner Channel
+        tr1 = high - low
+        tr2 = abs(high - close.shift(1))
+        tr3 = abs(low - close.shift(1))
+        tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
+        atr = tr.rolling(window=self.squeeze_kc_period).mean()
+
+        # Keltner Channel 계산
+        kc_middle = close.rolling(window=self.squeeze_kc_period).mean()
+        kc_upper = kc_middle + (self.squeeze_kc_mult * atr)
+        kc_lower = kc_middle - (self.squeeze_kc_mult * atr)
+
+        # Squeeze 판단 (볼린저가 켈트너 안에 있으면 Squeeze ON)
+        squeeze_on = (bb_lower.iloc[-1] > kc_lower.iloc[-1]) and (
+            bb_upper.iloc[-1] < kc_upper.iloc[-1]
+        )
+
+        # 연속 squeeze 일수 계산
+        squeeze_series = (bb_lower > kc_lower) & (bb_upper < kc_upper)
+        squeeze_count = 0
+        for i in range(len(squeeze_series) - 1, -1, -1):
+            if squeeze_series.iloc[i]:
+                squeeze_count += 1
+            else:
+                break
+
+        # Momentum 계산 (Donchian 중심선 기준)
+        donchian_mid = (
+            high.rolling(window=self.squeeze_bb_period).max()
+            + low.rolling(window=self.squeeze_bb_period).min()
+        ) / 2
+        momentum_basis = (donchian_mid + bb_sma) / 2
+        momentum = close - momentum_basis
+
+        current_momentum = momentum.iloc[-1]
+        prev_momentum = momentum.iloc[-2] if len(momentum) >= 2 else 0
+
+        # 모멘텀 방향 판단
+        if current_momentum > prev_momentum:
+            momentum_direction = "increasing"
+        elif current_momentum < prev_momentum:
+            momentum_direction = "decreasing"
+        else:
+            momentum_direction = "neutral"
+
+        return SqueezeResult(
+            is_squeeze_on=squeeze_on,
+            momentum=round(current_momentum, 4),
+            momentum_direction=momentum_direction,
+            squeeze_count=squeeze_count,
+        )
+
     def analyze(self, df: pd.DataFrame, spy_df: Optional[pd.DataFrame] = None) -> Dict:
         """
         모든 기술적 지표 종합 분석
@@ -601,6 +842,20 @@ class TechnicalAnalyzer:
             result["atr"] = self.calculate_atr(df, bollinger.sma)
         else:
             result["atr"] = None
+
+        # OBV (On Balance Volume)
+        result["obv"] = self.calculate_obv(df)
+
+        # Stochastic Oscillator
+        if "High" in df.columns and "Low" in df.columns:
+            result["stochastic"] = self.calculate_stochastic(
+                close, df["High"], df["Low"]
+            )
+        else:
+            result["stochastic"] = None
+
+        # TTM Squeeze
+        result["squeeze"] = self.calculate_squeeze(df)
 
         # 일간 변동률 계산
         if len(close) >= 2:
