@@ -90,7 +90,7 @@ class AnalysisSettings(BaseSettings):
     weight_obv: int = Field(default=8, alias="WEIGHT_OBV")
     weight_stochastic: int = Field(default=8, alias="WEIGHT_STOCHASTIC")
     weight_squeeze: int = Field(default=7, alias="WEIGHT_SQUEEZE")
-    min_recommendation_score: int = Field(default=50, alias="MIN_RECOMMENDATION_SCORE")
+    min_recommendation_score: int = Field(default=35, alias="MIN_RECOMMENDATION_SCORE")
 
     # Long-term Recommendation (총합 100점 유지)
     # 기존: RSI(10) + MACD(15) + BB(10) + Vol(10) + ADX(20) + RS(15) + 52W(10) + Kalman(10) = 100

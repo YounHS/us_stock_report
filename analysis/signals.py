@@ -608,8 +608,9 @@ class SignalDetector:
             if volume.volume_ratio < 0.7:
                 return True, "과매도 상태이나 거래량 감소 중"
 
-        # 3. R:R < 2:1 (리스크 대비 수익 불리)
-        if atr and atr.risk_reward_ratio < settings.analysis.min_risk_reward_ratio:
+        # 3. R:R < 2:1 → 목표가 < 현재가(음수 R:R)는 허용 (warning으로 처리)
+        #    양수이지만 낮은 R:R만 필터링
+        if atr and 0 < atr.risk_reward_ratio < settings.analysis.min_risk_reward_ratio:
             return True, f"리스크 대비 수익률 불리 (R:R {atr.risk_reward_ratio:.1f}:1)"
 
         return False, ""
@@ -760,6 +761,10 @@ class SignalDetector:
             target_price = round(close_price * 1.05, 2)
             stop_loss = round(close_price * 0.95, 2)
             risk_reward_ratio = 1.0
+
+        # 목표가 < 현재가 경고
+        if target_price < close_price:
+            warning_factors.append(f"블렌딩 목표가(${target_price:.2f})가 현재가 이하 — 단기 조정 가능성")
 
         # 보유 기간 결정
         if best_score >= 70:
@@ -982,6 +987,10 @@ class SignalDetector:
             target_price = round(close_price * 1.05, 2)
             stop_loss = round(close_price * 0.95, 2)
             risk_reward_ratio = 1.0
+
+        # 목표가 < 현재가 경고
+        if target_price < close_price:
+            warning_factors.append(f"블렌딩 목표가(${target_price:.2f})가 현재가 이하 — 단기 조정 가능성")
 
         # 보유 기간 결정
         if best_score >= 70:

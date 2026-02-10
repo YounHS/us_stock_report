@@ -91,9 +91,10 @@ python main.py --test-slack # 테스트 Slack 메시지 발송
 
 **Enhanced 방식** (`get_enhanced_recommendation()`):
 - 가중치 점수 시스템으로 종목 순위 산정
-- 최소 점수(`min_recommendation_score`) 이상만 추천 대상
+- 최소 점수(`min_recommendation_score`, 기본 35) 이상만 추천 대상
 - 70점 이상: High 신뢰도, 그 외: Medium 신뢰도
 - ATR 기반 손절가, 칼만 블렌딩 목표가 계산
+- R:R 필터: 양수이면서 2:1 미만일 때만 필터링. 음수 R:R(목표가 < 현재가)은 허용하되 warning으로 경고
 
 **Legacy 방식** (`get_top_recommendation()`):
 - Enhanced 실패 시 폴백으로 사용

@@ -151,7 +151,7 @@ GitHub Repository에 Secrets를 등록해야 합니다:
 | **핵심 조건** | RSI 과매도, 볼린저 하단 근접 | 칼만 예측가 > 현재가 | 장기 Kalman velocity > 0, ADX bullish |
 | **보유 기간** | 1-4주 | 2-4주 | 1-3개월 |
 | **종목 수** | 1개 (최적) | 1개 (단기 추천과 중복 제외) | 최대 3개 |
-| **하드 필터** | R:R >= 2:1, falling knife 제외 | 칼만 예측가 > 종가, 최소 점수 이상 | Kalman velocity > 0, RSI < 75 |
+| **하드 필터** | falling knife 제외, 최소 35점 | 칼만 예측가 > 종가, 최소 점수 이상 | Kalman velocity > 0, RSI < 75 |
 
 ## 기술적 지표 설명
 
