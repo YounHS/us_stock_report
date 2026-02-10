@@ -329,6 +329,10 @@
             background: rgba(255,255,255,0.25);
             color: white;
         }
+        .method-kalman {
+            background: #c4b5fd;
+            color: #3b0764;
+        }
         /* Enhanced Recommendation Styles */
         .confidence-badge {
             display: inline-block;
@@ -455,6 +459,22 @@
         .risk-info-item .value {
             font-size: 16px;
             font-weight: 600;
+        }
+        /* Kalman Filter Recommendation Styles */
+        .kalman-callout {
+            background: linear-gradient(135deg, #5b21b6 0%, #8b5cf6 100%);
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 30px;
+            color: white;
+            box-shadow: 0 4px 15px rgba(91, 33, 182, 0.3);
+        }
+        .kalman-callout h2 {
+            color: white;
+            border-left: 4px solid #c4b5fd;
+            padding-left: 12px;
+            margin-bottom: 20px;
+            font-size: 20px;
         }
         /* Long-term Recommendation Styles */
         .longterm-callout {
@@ -1204,6 +1224,296 @@
         </div>
         {% endif %}
 
+        <!-- 칼만 필터 추천 종목 -->
+        {% if recommendation_kalman %}
+        <div class="kalman-callout">
+            <h2>칼만 필터 추천 종목
+                {% if recommendation_kalman.recommendation_method %}
+                <span class="method-badge method-{{ recommendation_kalman.recommendation_method|lower }}">
+                    {{ recommendation_kalman.recommendation_method }}
+                </span>
+                {% endif %}
+                {% if recommendation_kalman.confidence %}
+                <span class="confidence-badge confidence-{{ recommendation_kalman.confidence|lower }}">
+                    {{ recommendation_kalman.confidence }}
+                </span>
+                <span class="score-display">({{ recommendation_kalman.score }}점)</span>
+                {% endif %}
+            </h2>
+            <div style="margin-bottom: 15px;">
+                <a href="https://younhs.github.io/us_stock_report/" target="_blank" style="color: rgba(255,255,255,0.85); font-size: 12px; text-decoration: underline;">지표 설명 보기 &rarr;</a>
+            </div>
+            <div class="recommendation-ticker">
+                <span class="ticker-symbol">{{ recommendation_kalman.ticker }}</span>
+                <span class="ticker-price">${{ recommendation_kalman.close }}</span>
+                <span class="ticker-change">{{ '+' if recommendation_kalman.change_pct > 0 else '' }}{{ recommendation_kalman.change_pct }}%</span>
+            </div>
+
+            <!-- 지표 요약 -->
+            {% if recommendation_kalman.rsi is not none or recommendation_kalman.adx is not none or recommendation_kalman.macd_signal is not none %}
+            <div class="indicator-grid">
+                {% if recommendation_kalman.rsi is not none %}
+                <div class="indicator-item">
+                    <div class="label">RSI</div>
+                    <div class="value {% if recommendation_kalman.rsi < 30 %}positive{% elif recommendation_kalman.rsi > 70 %}negative{% endif %}">{{ recommendation_kalman.rsi }}</div>
+                </div>
+                {% endif %}
+                {% if recommendation_kalman.adx is not none %}
+                <div class="indicator-item">
+                    <div class="label">ADX</div>
+                    <div class="value">{{ recommendation_kalman.adx }}</div>
+                </div>
+                {% endif %}
+                {% if recommendation_kalman.macd_signal is not none %}
+                <div class="indicator-item">
+                    <div class="label">MACD</div>
+                    <div class="value {% if recommendation_kalman.macd_signal == '골든크로스' %}positive{% else %}negative{% endif %}">{{ recommendation_kalman.macd_signal }}</div>
+                </div>
+                {% endif %}
+                {% if recommendation_kalman.bollinger_z_score is not none %}
+                <div class="indicator-item">
+                    <div class="label">BB Z-Score</div>
+                    <div class="value {% if recommendation_kalman.bollinger_z_score < -1 %}positive{% elif recommendation_kalman.bollinger_z_score > 1 %}negative{% endif %}">{{ recommendation_kalman.bollinger_z_score }}</div>
+                </div>
+                {% endif %}
+                {% if recommendation_kalman.volume_ratio is not none %}
+                <div class="indicator-item">
+                    <div class="label">거래량</div>
+                    <div class="value {% if recommendation_kalman.volume_ratio > 1.5 %}positive{% endif %}">{{ recommendation_kalman.volume_ratio }}x</div>
+                </div>
+                {% endif %}
+                {% if recommendation_kalman.atr_pct is not none %}
+                <div class="indicator-item">
+                    <div class="label">ATR%</div>
+                    <div class="value">{{ recommendation_kalman.atr_pct }}%</div>
+                </div>
+                {% endif %}
+                {% if recommendation_kalman.relative_strength_20d is not none %}
+                <div class="indicator-item">
+                    <div class="label">SPY대비</div>
+                    <div class="value {% if recommendation_kalman.relative_strength_20d > 0 %}positive{% else %}negative{% endif %}">{{ '+' if recommendation_kalman.relative_strength_20d > 0 else '' }}{{ recommendation_kalman.relative_strength_20d }}%</div>
+                </div>
+                {% endif %}
+                {% if recommendation_kalman.week52_position is not none %}
+                <div class="indicator-item">
+                    <div class="label">52주위치</div>
+                    <div class="value">{{ recommendation_kalman.week52_position }}%</div>
+                </div>
+                {% endif %}
+                {% if recommendation_kalman.kalman_predicted_price is not none %}
+                <div class="indicator-item">
+                    <div class="label">Kalman예측</div>
+                    <div class="value {% if recommendation_kalman.kalman_predicted_price > recommendation_kalman.close %}positive{% elif recommendation_kalman.kalman_predicted_price < recommendation_kalman.close %}negative{% endif %}">${{ recommendation_kalman.kalman_predicted_price }}</div>
+                </div>
+                {% endif %}
+                {% if recommendation_kalman.kalman_trend_velocity is not none %}
+                <div class="indicator-item">
+                    <div class="label">추세속도</div>
+                    <div class="value {% if recommendation_kalman.kalman_trend_velocity > 0 %}positive{% elif recommendation_kalman.kalman_trend_velocity < 0 %}negative{% endif %}">{{ recommendation_kalman.kalman_trend_velocity }}</div>
+                </div>
+                {% endif %}
+                {% if recommendation_kalman.obv_trend is not none %}
+                <div class="indicator-item">
+                    <div class="label">OBV추세</div>
+                    <div class="value {% if recommendation_kalman.obv_trend == 'accumulation' %}positive{% elif recommendation_kalman.obv_trend == 'distribution' %}negative{% endif %}">{{ recommendation_kalman.obv_trend }}</div>
+                </div>
+                {% endif %}
+                {% if recommendation_kalman.stochastic_k is not none %}
+                <div class="indicator-item">
+                    <div class="label">Stoch %K</div>
+                    <div class="value {% if recommendation_kalman.stochastic_k < 20 %}positive{% elif recommendation_kalman.stochastic_k > 80 %}negative{% endif %}">{{ recommendation_kalman.stochastic_k }}</div>
+                </div>
+                {% endif %}
+                {% if recommendation_kalman.squeeze_status is not none %}
+                <div class="indicator-item">
+                    <div class="label">Squeeze</div>
+                    <div class="value {% if recommendation_kalman.squeeze_status == 'ON' %}positive{% endif %}">{{ recommendation_kalman.squeeze_status }}</div>
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            <div class="recommendation-target">
+                <div class="recommendation-target-item">
+                    <div class="label">매도 목표가</div>
+                    <div class="value">${{ recommendation_kalman.target_price }}</div>
+                </div>
+                <div class="recommendation-target-item">
+                    <div class="label">예상 수익률</div>
+                    {% if recommendation_kalman.target_return is defined %}
+                    <div class="value">+{{ recommendation_kalman.target_return }}%</div>
+                    {% else %}
+                    <div class="value">+{{ ((recommendation_kalman.target_price - recommendation_kalman.close) / recommendation_kalman.close * 100)|round(2) }}%</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- 손절가 및 R:R -->
+            {% if recommendation_kalman.stop_loss is defined and recommendation_kalman.stop_loss is not none %}
+            <div class="risk-info">
+                <div class="risk-info-item">
+                    <div class="label">손절가</div>
+                    <div class="value">${{ recommendation_kalman.stop_loss }}</div>
+                </div>
+                <div class="risk-info-item">
+                    <div class="label">리스크</div>
+                    <div class="value">-{{ ((recommendation_kalman.close - recommendation_kalman.stop_loss) / recommendation_kalman.close * 100)|round(1) }}%</div>
+                </div>
+                <div class="risk-info-item">
+                    <div class="label">R:R 비율</div>
+                    <div class="value">{{ recommendation_kalman.risk_reward_ratio }}:1</div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- 점수 구성 시각화 -->
+            {% if recommendation_kalman.score_breakdown %}
+            <div class="score-breakdown">
+                <h3 style="font-size: 13px; margin-bottom: 12px; opacity: 0.9;">점수 구성</h3>
+                {% if recommendation_kalman.score_breakdown.rsi_score != 0 %}
+                <div class="score-bar-container">
+                    <span class="score-bar-label">RSI</span>
+                    <div class="score-bar-track">
+                        <div class="score-bar-fill" style="width: {{ (recommendation_kalman.score_breakdown.rsi_score / 15 * 100)|abs }}%"></div>
+                    </div>
+                    <span class="score-bar-value">{{ recommendation_kalman.score_breakdown.rsi_score }}</span>
+                </div>
+                {% endif %}
+                {% if recommendation_kalman.score_breakdown.volume_score != 0 %}
+                <div class="score-bar-container">
+                    <span class="score-bar-label">거래량</span>
+                    <div class="score-bar-track">
+                        <div class="score-bar-fill" style="width: {{ (recommendation_kalman.score_breakdown.volume_score / 10 * 100)|abs }}%"></div>
+                    </div>
+                    <span class="score-bar-value">{{ recommendation_kalman.score_breakdown.volume_score }}</span>
+                </div>
+                {% endif %}
+                {% if recommendation_kalman.score_breakdown.adx_score != 0 %}
+                <div class="score-bar-container">
+                    <span class="score-bar-label">ADX</span>
+                    <div class="score-bar-track">
+                        <div class="score-bar-fill" style="width: {{ (recommendation_kalman.score_breakdown.adx_score / 12 * 100)|abs }}%"></div>
+                    </div>
+                    <span class="score-bar-value">{{ recommendation_kalman.score_breakdown.adx_score }}</span>
+                </div>
+                {% endif %}
+                {% if recommendation_kalman.score_breakdown.macd_score != 0 %}
+                <div class="score-bar-container">
+                    <span class="score-bar-label">MACD</span>
+                    <div class="score-bar-track">
+                        <div class="score-bar-fill" style="width: {{ (recommendation_kalman.score_breakdown.macd_score / 12 * 100)|abs }}%"></div>
+                    </div>
+                    <span class="score-bar-value">{{ recommendation_kalman.score_breakdown.macd_score }}</span>
+                </div>
+                {% endif %}
+                {% if recommendation_kalman.score_breakdown.bollinger_score != 0 %}
+                <div class="score-bar-container">
+                    <span class="score-bar-label">볼린저</span>
+                    <div class="score-bar-track">
+                        <div class="score-bar-fill" style="width: {{ (recommendation_kalman.score_breakdown.bollinger_score / 12 * 100)|abs }}%"></div>
+                    </div>
+                    <span class="score-bar-value">{{ recommendation_kalman.score_breakdown.bollinger_score }}</span>
+                </div>
+                {% endif %}
+                {% if recommendation_kalman.score_breakdown.relative_strength_score != 0 %}
+                <div class="score-bar-container">
+                    <span class="score-bar-label">상대강도</span>
+                    <div class="score-bar-track">
+                        <div class="score-bar-fill" style="width: {{ (recommendation_kalman.score_breakdown.relative_strength_score / 8 * 100)|abs }}%"></div>
+                    </div>
+                    <span class="score-bar-value">{{ recommendation_kalman.score_breakdown.relative_strength_score }}</span>
+                </div>
+                {% endif %}
+                {% if recommendation_kalman.score_breakdown.week52_score != 0 %}
+                <div class="score-bar-container">
+                    <span class="score-bar-label">52주위치</span>
+                    <div class="score-bar-track">
+                        <div class="score-bar-fill" style="width: {{ (recommendation_kalman.score_breakdown.week52_score / 8 * 100)|abs }}%"></div>
+                    </div>
+                    <span class="score-bar-value">{{ recommendation_kalman.score_breakdown.week52_score }}</span>
+                </div>
+                {% endif %}
+                {% if recommendation_kalman.score_breakdown.obv_score != 0 %}
+                <div class="score-bar-container">
+                    <span class="score-bar-label">OBV</span>
+                    <div class="score-bar-track">
+                        <div class="score-bar-fill" style="width: {{ (recommendation_kalman.score_breakdown.obv_score / 8 * 100)|abs }}%"></div>
+                    </div>
+                    <span class="score-bar-value">{{ recommendation_kalman.score_breakdown.obv_score }}</span>
+                </div>
+                {% endif %}
+                {% if recommendation_kalman.score_breakdown.stochastic_score != 0 %}
+                <div class="score-bar-container">
+                    <span class="score-bar-label">Stochastic</span>
+                    <div class="score-bar-track">
+                        <div class="score-bar-fill" style="width: {{ (recommendation_kalman.score_breakdown.stochastic_score / 8 * 100)|abs }}%"></div>
+                    </div>
+                    <span class="score-bar-value">{{ recommendation_kalman.score_breakdown.stochastic_score }}</span>
+                </div>
+                {% endif %}
+                {% if recommendation_kalman.score_breakdown.squeeze_score != 0 %}
+                <div class="score-bar-container">
+                    <span class="score-bar-label">Squeeze</span>
+                    <div class="score-bar-track">
+                        <div class="score-bar-fill" style="width: {{ (recommendation_kalman.score_breakdown.squeeze_score / 7 * 100)|abs }}%"></div>
+                    </div>
+                    <span class="score-bar-value">{{ recommendation_kalman.score_breakdown.squeeze_score }}</span>
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            <!-- 매수근거 / 주의사항 -->
+            {% if recommendation_kalman.bullish_factors or recommendation_kalman.warning_factors %}
+            <div class="factors-grid">
+                {% if recommendation_kalman.bullish_factors %}
+                <div class="factors-section bullish">
+                    <h3>매수 근거</h3>
+                    <ul>
+                        {% for factor in recommendation_kalman.bullish_factors %}
+                        <li>{{ factor }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+                {% if recommendation_kalman.warning_factors %}
+                <div class="factors-section warning">
+                    <h3>주의 사항</h3>
+                    <ul>
+                        {% for factor in recommendation_kalman.warning_factors %}
+                        <li>{{ factor }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+            </div>
+            {% elif recommendation_kalman.reasons %}
+            <div class="recommendation-reasons">
+                <h3>추천 근거</h3>
+                <ul>
+                    {% for reason in recommendation_kalman.reasons %}
+                    <li>{{ reason }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+
+            <div class="recommendation-meta">
+                <div class="recommendation-meta-item">
+                    <div class="label">추천 보유 기간</div>
+                    <div class="value">{{ recommendation_kalman.holding_period }}</div>
+                </div>
+                <div class="recommendation-meta-item">
+                    <div class="label">분석 출처</div>
+                    <div class="value">{{ recommendation_kalman.source }}</div>
+                </div>
+            </div>
+            <div class="recommendation-disclaimer">
+                {{ recommendation_kalman.disclaimer }}
+            </div>
+        </div>
+        {% endif %}
+
         <!-- 장기 투자 추천 종목 -->
         {% if longterm_recommendations %}
         <div class="longterm-callout">
@@ -1272,6 +1582,22 @@
                         <div class="longterm-ind-item">
                             <span class="label">52주</span>
                             <span class="value">{{ rec.week52_position }}%</span>
+                        </div>
+                        {% endif %}
+                        {% if rec.kalman_predicted_price is not none %}
+                        <div class="longterm-ind-item">
+                            <span class="label">Kalman목표</span>
+                            <span class="value" style="{{ 'color: #a7f3d0;' if rec.kalman_predicted_price > rec.close else 'color: #fca5a5;' if rec.kalman_predicted_price < rec.close else '' }}">${{ rec.kalman_predicted_price }}
+                                {% if rec.close %}
+                                <small>({{ '+' if rec.kalman_predicted_price > rec.close else '' }}{{ ((rec.kalman_predicted_price - rec.close) / rec.close * 100)|round(1) }}%)</small>
+                                {% endif %}
+                            </span>
+                        </div>
+                        {% endif %}
+                        {% if rec.kalman_trend_velocity is not none %}
+                        <div class="longterm-ind-item">
+                            <span class="label">일일속도</span>
+                            <span class="value" style="{{ 'color: #a7f3d0;' if rec.kalman_trend_velocity > 0 else 'color: #fca5a5;' if rec.kalman_trend_velocity < 0 else '' }}">{{ rec.kalman_trend_velocity }}</span>
                         </div>
                         {% endif %}
                         {% if rec.obv_trend is not none %}

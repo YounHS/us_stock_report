@@ -147,6 +147,13 @@ class TechnicalAnalyzer:
         self.kalman_measurement_variance = settings.analysis.kalman_measurement_variance
         self.kalman_blend_alpha = settings.analysis.kalman_blend_alpha
 
+        # Long-term Kalman settings
+        self.longterm_kalman_process_variance = settings.analysis.longterm_kalman_process_variance
+        self.longterm_kalman_measurement_variance = settings.analysis.longterm_kalman_measurement_variance
+        self.longterm_kalman_blend_alpha = settings.analysis.longterm_kalman_blend_alpha
+        self.longterm_kalman_sma_period = settings.analysis.longterm_kalman_sma_period
+        self.longterm_prediction_days = settings.analysis.longterm_prediction_days
+
         # OBV settings
         self.obv_sma_period = settings.analysis.obv_sma_period
 
@@ -586,6 +593,90 @@ class TechnicalAnalyzer:
             blended_target=round(blended_target, 2),
         )
 
+    def calculate_kalman_filter_longterm(
+        self, close_prices: pd.Series, sma_anchor: Optional[float] = None
+    ) -> Optional[KalmanResult]:
+        """
+        장기 전용 칼만 필터 (추세 추종에 적합한 파라미터)
+
+        단기 칼만 필터 대비:
+        - process_variance 100배 높음 → 추세 변화에 빠르게 반응
+        - 50일 SMA와 블렌딩 → 장기 평균으로 앵커링
+        - N-step prediction → longterm_prediction_days 거래일 후 예측가
+
+        Args:
+            close_prices: 종가 시리즈
+            sma_anchor: 50일 SMA (블렌딩용, None이면 블렌딩 없음)
+
+        Returns:
+            KalmanResult or None
+        """
+        if len(close_prices) < 10:
+            return None
+
+        prices = close_prices.values.astype(float)
+
+        Q = self.longterm_kalman_process_variance
+        R = self.longterm_kalman_measurement_variance
+        alpha = self.longterm_kalman_blend_alpha
+        N = self.longterm_prediction_days
+
+        # State: [price, velocity]
+        x = np.array([prices[0], 0.0])
+
+        # Initial covariance
+        P = np.array([[1.0, 0.0],
+                      [0.0, 1.0]])
+
+        # State transition: price += velocity, velocity stays
+        F = np.array([[1.0, 1.0],
+                      [0.0, 1.0]])
+
+        # Observation: we observe only price
+        H = np.array([[1.0, 0.0]])
+
+        # Process noise covariance
+        Q_mat = Q * np.eye(2)
+
+        # Measurement noise covariance
+        R_mat = np.array([[R]])
+
+        # Run filter
+        for z in prices:
+            # Predict
+            x_pred = F @ x
+            P_pred = F @ P @ F.T + Q_mat
+
+            # Update
+            y = z - H @ x_pred
+            S = H @ P_pred @ H.T + R_mat
+            K = P_pred @ H.T / S[0, 0]
+
+            x = x_pred + K.flatten() * y
+            P = (np.eye(2) - K @ H) @ P_pred
+
+        filtered_price = x[0]
+        trend_velocity = x[1]
+
+        # N-step prediction: F^N @ x
+        x_n = x.copy()
+        for _ in range(N):
+            x_n = F @ x_n
+        predicted_price = x_n[0]
+
+        # Blend with long-term SMA
+        if sma_anchor is not None:
+            blended_target = alpha * predicted_price + (1 - alpha) * sma_anchor
+        else:
+            blended_target = predicted_price
+
+        return KalmanResult(
+            filtered_price=round(filtered_price, 2),
+            predicted_price=round(predicted_price, 2),
+            trend_velocity=round(trend_velocity, 4),
+            blended_target=round(blended_target, 2),
+        )
+
     def calculate_obv(self, df: pd.DataFrame) -> Optional[OBVResult]:
         """
         OBV (On Balance Volume) 계산
@@ -834,6 +925,10 @@ class TechnicalAnalyzer:
             close, bollinger.sma if bollinger else None
         )
         result["kalman"] = kalman
+
+        # Long-term Kalman filter (장기 전용 파라미터)
+        sma_50 = close.rolling(self.longterm_kalman_sma_period).mean().iloc[-1] if len(close) >= self.longterm_kalman_sma_period else None
+        result["kalman_longterm"] = self.calculate_kalman_filter_longterm(close, sma_50)
 
         # ATR with Kalman-blended target (fallback to Bollinger SMA)
         if kalman and kalman.blended_target > 0:

@@ -812,6 +812,228 @@ class SignalDetector:
         )
 
     # ============================
+    # Kalman Filter Recommendation
+    # ============================
+
+    def get_kalman_recommendation(
+        self, exclude_tickers: Optional[List[str]] = None
+    ) -> Optional[EnhancedRecommendation]:
+        """
+        칼만 예측가 > 현재가 필터 기반 추천 종목 선정
+
+        기존 Enhanced 점수 시스템을 재사용하되, 칼만 예측가가
+        현재가보다 높은 종목만 후보로 선정하여 상승 여력이 있는 종목을 추천.
+
+        Args:
+            exclude_tickers: 제외할 종목 리스트 (기존 추천과 중복 방지)
+
+        Returns:
+            EnhancedRecommendation or None
+        """
+        exclude = set(exclude_tickers or [])
+        candidates = []
+
+        for ticker, analysis in self.analysis_results.items():
+            # 제외 종목 스킵
+            if ticker in exclude:
+                continue
+
+            # 기본 지표가 없으면 스킵
+            if not analysis.get("rsi") and not analysis.get("bollinger"):
+                continue
+
+            # 하드 필터: 칼만 예측가 > 현재가
+            kalman = analysis.get("kalman")
+            close = analysis.get("close", 0)
+            if not kalman or not close or kalman.predicted_price <= close:
+                continue
+
+            # 점수 계산 (기존 Enhanced와 동일)
+            score_breakdown = ScoreBreakdown(
+                rsi_score=self._calculate_rsi_score(analysis),
+                volume_score=self._calculate_volume_score(analysis),
+                adx_score=self._calculate_adx_score(analysis),
+                macd_score=self._calculate_macd_score(analysis),
+                bollinger_score=self._calculate_bollinger_score(analysis),
+                relative_strength_score=self._calculate_relative_strength_score(analysis),
+                week52_score=self._calculate_week52_score(analysis),
+                obv_score=self._calculate_obv_score(analysis),
+                stochastic_score=self._calculate_stochastic_score(analysis),
+                squeeze_score=self._calculate_squeeze_score(analysis),
+            )
+
+            total_score = score_breakdown.total
+
+            # 최소 점수 미달 시 스킵
+            if total_score < settings.analysis.min_recommendation_score:
+                continue
+
+            # 필터링 조건 체크
+            should_filter, filter_reason = self._should_filter_out(analysis, score_breakdown)
+            if should_filter:
+                logger.debug(f"{ticker} 칼만 필터링됨: {filter_reason}")
+                continue
+
+            candidates.append((ticker, total_score, score_breakdown, analysis))
+
+        if not candidates:
+            return None
+
+        # 점수 기준 정렬
+        candidates.sort(key=lambda x: x[1], reverse=True)
+        best_ticker, best_score, best_breakdown, best_analysis = candidates[0]
+
+        # 신뢰도 결정
+        if best_score >= 70:
+            confidence = "High"
+        else:
+            confidence = "Medium"
+
+        # 매수 근거 및 주의사항 수집
+        bullish_factors = []
+        warning_factors = []
+
+        rsi = best_analysis.get("rsi")
+        macd = best_analysis.get("macd")
+        bollinger = best_analysis.get("bollinger")
+        volume = best_analysis.get("volume")
+        adx = best_analysis.get("adx")
+        rs = best_analysis.get("relative_strength")
+        week52 = best_analysis.get("week52")
+        atr = best_analysis.get("atr")
+        kalman = best_analysis.get("kalman")
+        obv = best_analysis.get("obv")
+        stochastic = best_analysis.get("stochastic")
+        squeeze = best_analysis.get("squeeze")
+        close_price = best_analysis.get("close", 0)
+
+        # 칼만 필터 관련 bullish factor (이 메서드의 핵심)
+        if kalman and close_price:
+            kalman_upside = ((kalman.predicted_price - close_price) / close_price) * 100
+            bullish_factors.append(f"칼만 예측가 ${kalman.predicted_price:.2f} (현재가 대비 +{kalman_upside:.1f}%)")
+
+        # 기존 Enhanced와 동일한 bullish/warning factors
+        if rsi and rsi.is_oversold:
+            bullish_factors.append(f"RSI {rsi.value:.1f} (과매도 구간)")
+
+        if macd and macd.is_bullish_cross:
+            bullish_factors.append("MACD 골든크로스 발생")
+
+        if bollinger and bollinger.is_near_lower_sigma:
+            bullish_factors.append(f"볼린저밴드 하단 근접 (Z-score: {bollinger.z_score:.2f})")
+
+        if volume and volume.is_volume_spike:
+            bullish_factors.append(f"거래량 급증 (평균 대비 {volume.volume_ratio:.1f}배)")
+
+        if rs and rs.is_outperforming:
+            bullish_factors.append(f"SPY 대비 20일 아웃퍼폼 (+{rs.rs_20d:.1f}%)")
+
+        if week52 and week52.is_near_low:
+            bullish_factors.append(f"52주 저점 근처 ({week52.current_position_pct:.1f}% 위치)")
+
+        if adx and adx.trend_strength == "weak":
+            bullish_factors.append("약한 추세 (평균회귀 유효)")
+
+        if obv and obv.is_bullish_divergence:
+            bullish_factors.append("OBV 다이버전스 (매집 신호)")
+        elif obv and obv.obv_trend == "accumulation":
+            bullish_factors.append("OBV 매집 구간")
+
+        if stochastic and stochastic.is_oversold and rsi and rsi.is_oversold:
+            bullish_factors.append(f"Stochastic+RSI 동시 과매도 (%K: {stochastic.k:.1f})")
+        elif stochastic and stochastic.is_bullish_cross:
+            bullish_factors.append("Stochastic 상향 돌파")
+
+        if squeeze and squeeze.is_squeeze_on and squeeze.momentum > 0:
+            bullish_factors.append(f"Squeeze ON + 상승 모멘텀 ({squeeze.squeeze_count}일 연속)")
+
+        # Warning factors
+        if adx and adx.trend_direction == "bearish":
+            warning_factors.append("하락 추세 지속 중")
+
+        if volume and volume.volume_ratio < 1.0:
+            warning_factors.append("거래량 평균 이하")
+
+        if rs and not rs.is_outperforming:
+            warning_factors.append("시장 대비 언더퍼폼")
+
+        if week52 and week52.current_position_pct > 50:
+            warning_factors.append("52주 중간 이상 위치")
+
+        if obv and obv.obv_trend == "distribution":
+            warning_factors.append("OBV 분산 구간 (매도 압력)")
+
+        if stochastic and stochastic.is_overbought:
+            warning_factors.append(f"Stochastic 과매수 (%K: {stochastic.k:.1f})")
+
+        if squeeze and squeeze.momentum < 0 and squeeze.momentum_direction == "decreasing":
+            warning_factors.append("Squeeze 하락 모멘텀 악화")
+
+        # 목표가 및 손절가
+        if atr:
+            target_price = atr.target_price
+            stop_loss = atr.stop_loss
+            risk_reward_ratio = atr.risk_reward_ratio
+        elif bollinger:
+            target_price = bollinger.sma
+            stop_loss = round(close_price * 0.95, 2)
+            risk_reward_ratio = round((target_price - close_price) / (close_price - stop_loss), 2) if close_price > stop_loss else 0
+        else:
+            target_price = round(close_price * 1.05, 2)
+            stop_loss = round(close_price * 0.95, 2)
+            risk_reward_ratio = 1.0
+
+        # 보유 기간 결정
+        if best_score >= 70:
+            holding_period = "2-4주 (복수 신호로 신뢰도 높음)"
+        elif rsi and rsi.value < 20:
+            holding_period = "1-2주 (극단적 과매도, 빠른 반등 기대)"
+        else:
+            holding_period = "2-3주 (평균회귀 전략)"
+
+        # 출처 결정
+        primary_factors = ["칼만필터"]
+        if best_breakdown.rsi_score > 0:
+            primary_factors.append("RSI")
+        if best_breakdown.macd_score > 0:
+            primary_factors.append("MACD")
+        if best_breakdown.bollinger_score > 0:
+            primary_factors.append("볼린저밴드")
+        if best_breakdown.volume_score > 0:
+            primary_factors.append("거래량")
+        if best_breakdown.obv_score > 0:
+            primary_factors.append("OBV")
+        if best_breakdown.stochastic_score > 0:
+            primary_factors.append("Stochastic")
+        if best_breakdown.squeeze_score > 0:
+            primary_factors.append("Squeeze")
+
+        source = f"칼만 필터 + 가중치 점수 ({', '.join(primary_factors[:3])})"
+
+        return EnhancedRecommendation(
+            ticker=best_ticker,
+            score=best_score,
+            confidence=confidence,
+            close=close_price,
+            change_pct=best_analysis.get("change_pct", 0),
+            target_price=target_price,
+            stop_loss=stop_loss,
+            risk_reward_ratio=risk_reward_ratio,
+            bullish_factors=bullish_factors,
+            warning_factors=warning_factors,
+            score_breakdown=best_breakdown,
+            holding_period=holding_period,
+            source=source,
+            rsi=rsi.value if rsi else None,
+            adx=adx.adx if adx else None,
+            volume_ratio=volume.volume_ratio if volume else None,
+            relative_strength_20d=rs.rs_20d if rs else None,
+            week52_position=week52.current_position_pct if week52 else None,
+            kalman_predicted_price=kalman.predicted_price if kalman else None,
+            kalman_trend_velocity=kalman.trend_velocity if kalman else None,
+        )
+
+    # ============================
     # Long-term Recommendation
     # ============================
 
@@ -822,7 +1044,7 @@ class SignalDetector:
         if ticker in self.LONGTERM_EXCLUDED:
             return False
 
-        kalman = analysis.get("kalman")
+        kalman = analysis.get("kalman_longterm")
         adx = analysis.get("adx")
         rsi = analysis.get("rsi")
         volume = analysis.get("volume")
@@ -967,7 +1189,7 @@ class SignalDetector:
 
     def _longterm_kalman_score(self, analysis: Dict) -> int:
         """장기 칼만 점수 (최대 longterm_weight_kalman점) — velocity/price > 0.3%"""
-        kalman = analysis.get("kalman")
+        kalman = analysis.get("kalman_longterm")
         close = analysis.get("close", 0)
         if not kalman or not close:
             return 0
@@ -1116,7 +1338,7 @@ class SignalDetector:
             adx = analysis.get("adx")
             rs = analysis.get("relative_strength")
             week52 = analysis.get("week52")
-            kalman = analysis.get("kalman")
+            kalman = analysis.get("kalman_longterm")
             atr = analysis.get("atr")
             obv = analysis.get("obv")
             stochastic = analysis.get("stochastic")
@@ -1132,9 +1354,11 @@ class SignalDetector:
                 reasons.append(f"SPY 대비 20일 +{rs.rs_20d:.1f}% 아웃퍼폼")
             if macd and macd.macd_line > macd.signal_line:
                 reasons.append("MACD 상승 모멘텀 유지")
-            if kalman:
-                vel_pct = (kalman.trend_velocity / close * 100) if close else 0
-                reasons.append(f"칼만 추세 속도 +{vel_pct:.2f}%/일")
+            if kalman and close:
+                n_days = settings.analysis.longterm_prediction_days
+                longterm_pred = kalman.predicted_price  # N-step 예측 (이미 계산됨)
+                expected_return = ((longterm_pred - close) / close) * 100
+                reasons.append(f"칼만 {n_days}일 예측 ${longterm_pred:.2f} ({'+' if expected_return >= 0 else ''}{expected_return:.1f}%)")
             if obv and obv.obv_trend == "accumulation":
                 reasons.append("OBV 매집 구간 — 세력 매수 중")
             if squeeze and not squeeze.is_squeeze_on and squeeze.momentum > 0:
@@ -1163,6 +1387,9 @@ class SignalDetector:
                 "atr_pct": round(atr.atr / close * 100, 2) if atr and close else None,
                 "relative_strength_20d": round(rs.rs_20d, 1) if rs else None,
                 "week52_position": round(week52.current_position_pct, 1) if week52 else None,
+                # 칼만 필터 (장기 전용 N-step 예측)
+                "kalman_predicted_price": round(kalman.predicted_price, 2) if kalman else None,
+                "kalman_trend_velocity": round(kalman.trend_velocity, 4) if kalman else None,
                 # 새 지표
                 "obv_trend": obv.obv_trend if obv else None,
                 "stochastic_k": round(stochastic.k, 1) if stochastic else None,

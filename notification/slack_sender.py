@@ -28,6 +28,7 @@ class SlackSender:
         self,
         market_summary: Optional[dict] = None,
         recommendation: Optional[dict] = None,
+        recommendation_kalman: Optional[dict] = None,
     ) -> str:
         """Slack 요약 메시지 텍스트 생성"""
         tz = ZoneInfo(settings.general.timezone)
@@ -76,6 +77,30 @@ class SlackSender:
                     parts.append(f"ADX: {adx:.1f}")
                 lines.append(f"  {' | '.join(parts)}")
 
+        # 칼만 필터 추천 종목
+        if recommendation_kalman:
+            method = recommendation_kalman.get("recommendation_method", "")
+            method_tag = f" [{method}]" if method else ""
+            lines.append("")
+            lines.append(f"*칼만 필터 추천: {recommendation_kalman.get('ticker', 'N/A')}*{method_tag}")
+
+            kal_score = recommendation_kalman.get("score")
+            kal_confidence = recommendation_kalman.get("confidence")
+            if kal_score is not None:
+                lines.append(f"  점수: {kal_score}/100 ({kal_confidence or 'N/A'})")
+
+            kal_close = recommendation_kalman.get("close")
+            kal_target = recommendation_kalman.get("target_price")
+            kal_target_ret = recommendation_kalman.get("target_return")
+            kal_kalman_price = recommendation_kalman.get("kalman_predicted_price")
+            if kal_close is not None:
+                target_str = ""
+                if kal_target is not None and kal_target_ret is not None:
+                    target_str = f" | 목표가: ${kal_target:.2f} ({'+' if kal_target_ret >= 0 else ''}{kal_target_ret:.1f}%)"
+                lines.append(f"  현재가: ${kal_close:.2f}{target_str}")
+            if kal_kalman_price is not None:
+                lines.append(f"  칼만 예측가: ${kal_kalman_price:.2f}")
+
         lines.append("")
         lines.append("상세 리포트는 첨부 파일을 확인하세요.")
 
@@ -86,6 +111,7 @@ class SlackSender:
         html_content: str,
         market_summary: Optional[dict] = None,
         recommendation: Optional[dict] = None,
+        recommendation_kalman: Optional[dict] = None,
     ) -> bool:
         """
         Slack 채널에 요약 메시지 + HTML 리포트 파일 전송
@@ -109,7 +135,7 @@ class SlackSender:
         tz = ZoneInfo(settings.general.timezone)
         date_str = datetime.now(tz).strftime("%Y-%m-%d")
 
-        summary_text = self._build_summary_text(market_summary, recommendation)
+        summary_text = self._build_summary_text(market_summary, recommendation, recommendation_kalman)
 
         try:
             # 1. 요약 메시지 발송

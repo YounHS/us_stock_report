@@ -46,14 +46,15 @@ python main.py --test-slack # 테스트 Slack 메시지 발송
 - **config/sp500_tickers.py**: Wikipedia에서 S&P 500 종목 스크래핑 (User-Agent 필수), 11개 GICS 섹터 매핑
 - **data/fetcher.py**: `yfinance`로 OHLCV 배치 다운로드. `StockDataFetcher.fetch_batch()` 사용
 - **data/calendar.py**: 경제 캘린더(`EconomicCalendar`) 및 실적 발표 일정(`EarningsCalendar`) 수집
-- **analysis/technical.py**: RSI, MACD, 볼린저밴드, ADX, ATR, 거래량, 상대강도, 52주 위치, 칼만 필터, OBV, Stochastic, TTM Squeeze 계산. 결과는 dataclass로 반환 (`RSIResult`, `MACDResult`, `BollingerResult`, `ADXResult`, `ATRResult`, `VolumeResult`, `RelativeStrengthResult`, `Week52Result`, `KalmanResult`, `OBVResult`, `StochasticResult`, `SqueezeResult`)
-- **analysis/signals.py**: `SignalDetector`가 분석 결과에서 매수 신호 감지. 세 가지 추천 방식 제공:
+- **analysis/technical.py**: RSI, MACD, 볼린저밴드, ADX, ATR, 거래량, 상대강도, 52주 위치, 칼만 필터(단기/장기), OBV, Stochastic, TTM Squeeze 계산. 칼만 필터는 두 가지 메서드 제공: `calculate_kalman_filter()` (단기, 1-step 예측) / `calculate_kalman_filter_longterm()` (장기 전용, N-step 예측). 결과는 dataclass로 반환 (`RSIResult`, `MACDResult`, `BollingerResult`, `ADXResult`, `ATRResult`, `VolumeResult`, `RelativeStrengthResult`, `Week52Result`, `KalmanResult`, `OBVResult`, `StochasticResult`, `SqueezeResult`)
+- **analysis/signals.py**: `SignalDetector`가 분석 결과에서 매수 신호 감지. 네 가지 추천 방식 제공:
   - `get_enhanced_recommendation()`: 가중치 점수 시스템 기반 단기 추천 (우선 사용)
   - `get_top_recommendation()`: 레거시 방식 (Enhanced 실패 시 폴백)
+  - `get_kalman_recommendation()`: 칼만 예측가 > 현재가 필터 기반 추가 단기 추천 (기존 추천과 중복 제외)
   - `get_longterm_recommendations()`: 추세 추종 기반 장기 투자 추천 Top N
 - **news/fetcher.py**: 핫한 종목/섹터 뉴스 수집. `fetch_hot_stocks_news()`, `fetch_sector_highlights()`
 - **report/generator.py**: Jinja2로 `report/templates/daily_report.html` 렌더링
-- **notification/slack_sender.py**: Slack Bot Token 기반 메시지 + PDF 리포트 발송. HTML→PDF 변환은 `google-chrome --headless --print-to-pdf` 사용
+- **notification/slack_sender.py**: Slack Bot Token 기반 메시지 + PDF 리포트 발송. 요약 메시지에 단기/칼만 추천 포함. HTML→PDF 변환은 `google-chrome --headless --print-to-pdf` 사용
 
 ### 리포트 구성
 
@@ -65,7 +66,8 @@ python main.py --test-slack # 테스트 Slack 메시지 발송
 6. 기술적 분석 신호 (1시그마 근접, RSI 과매도, MACD 골든크로스, 복합 신호)
 7. Top 10 상승/하락
 8. 오늘의 추천 종목 (RSI, ADX, MACD, BB Z-Score, 거래량, ATR%, SPY대비, 52주위치, 매도 목표가, 손절가, 보유 기간)
-9. 장기 투자 추천 Top 3 (추세 추종 기반, 녹색 카드 레이아웃)
+9. 칼만 필터 추천 종목 (칼만 예측가 > 현재가 필터, 보라색 카드 레이아웃)
+10. 장기 투자 추천 Top 3 (추세 추종 기반, 녹색 카드 레이아웃)
 
 ### 기술적 분석 파라미터
 
@@ -73,7 +75,8 @@ python main.py --test-slack # 테스트 Slack 메시지 발송
 - RSI: 14일 기준, 30 미만 = 과매도
 - MACD: 12/26/9 EMA
 - 볼린저밴드: 20일 SMA ± 2σ, Z-score로 1시그마 근접 판별 (-1.2 ≤ z ≤ -0.8)
-- 칼만 필터: process_variance=1e-5, measurement_variance=1e-2, blend_alpha=0.5 (Bollinger SMA와 블렌딩)
+- 칼만 필터 (단기, `calculate_kalman_filter`): process_variance=1e-5, measurement_variance=1e-2, blend_alpha=0.5 (20일 Bollinger SMA와 블렌딩, 1-step 예측)
+- 칼만 필터 (장기, `calculate_kalman_filter_longterm`): process_variance=1e-3 (단기 대비 100배), measurement_variance=1e-2, blend_alpha=0.7 (50일 SMA와 블렌딩, N-step 예측 N=`longterm_prediction_days` 기본 40거래일 ≈ 2개월). `longterm_kalman_sma_period`=50
 - OBV: 20일 SMA 기준, 매집(accumulation)/분산(distribution)/중립(neutral) 추세 판별
 - Stochastic: %K=14일, %D=3일 SMA, 과매도(<20), 과매수(>80)
 - TTM Squeeze: 볼린저밴드 20일/2σ, 켈트너채널 20일/1.5ATR. Squeeze ON = 변동성 수축
@@ -96,9 +99,23 @@ python main.py --test-slack # 테스트 Slack 메시지 발송
 - 우선순위: 복합 신호 → RSI 과매도 → MACD 골든크로스 → 1시그마 근접
 - 매도 목표가는 칼만 블렌딩 목표가 기준 (폴백: 20일 SMA)
 
+**칼만 필터 방식** (`get_kalman_recommendation()`):
+- 칼만 예측가가 현재가보다 높은 종목만 후보로 선정 (상승 여력 필터)
+- 기존 Enhanced 점수 시스템 재사용 (동일 가중치, 동일 최소 점수)
+- 기존 단기 추천 종목과 중복 제외 (`exclude_tickers` 파라미터)
+- ATR 기반 손절가, 칼만 블렌딩 목표가 계산 (Enhanced와 동일)
+- `recommendation_method`: "Kalman"
+- 리포트에서 보라색 카드로 표시
+
 **장기 추천 방식** (`get_longterm_recommendations()`):
 - 추세 추종(Trend-Following) 전략 기반, 단기 추천과 별도 운영
-- 하드 필터: Kalman velocity > 0, ADX 방향 != bearish, RSI < 75, 거래량 비율 >= 0.7
+- **장기 전용 칼만 필터** (`kalman_longterm`, `calculate_kalman_filter_longterm()`) 사용:
+  - 단기 칼만과 완전 분리된 독자적 산식 (파라미터, 블렌딩 앵커, 예측 스텝 모두 다름)
+  - process_variance=1e-3 (단기 1e-5 대비 100배 → 추세 변화에 빠르게 반응)
+  - blend_alpha=0.7 (단기 0.5 대비 칼만 예측가 비중 높음), 50일 SMA 앵커 (단기는 20일 Bollinger SMA)
+  - N-step 예측: `longterm_prediction_days`=40 거래일 후 예측가 (단기는 1-step)
+  - `analyze()` 결과에서 `kalman_longterm` 키로 별도 저장 (단기는 `kalman` 키)
+- 하드 필터: 장기 Kalman velocity > 0, ADX 방향 != bearish, RSI < 75, 거래량 비율 >= 0.7
 - SPY, QQQ, DIA, IWM 제외
 - 가중치 합계 100점: ADX(15) > MACD/상대강도(12) > RSI/볼린저/거래량/52주/칼만/OBV/Squeeze(8) > Stochastic(5)
 - 최소 점수(`longterm_min_score`) 이상만 추천 대상, 점수 내림차순 Top N
@@ -140,7 +157,7 @@ recommendation = {
     "score", "confidence", "score_breakdown",  # 점수 시스템 (Enhanced만)
     "bullish_factors", "warning_factors",      # 매수/주의 요인 (Enhanced만)
     "reasons", "holding_period", "source",     # 추천 근거
-    "recommendation_method",                   # "Enhanced" 또는 "Legacy"
+    "recommendation_method",                   # "Enhanced", "Legacy", 또는 "Kalman"
 }
 ```
 
@@ -155,7 +172,7 @@ score_breakdown = {
 ```
 
 템플릿에서 `is not none` 체크로 None 값 처리. Enhanced 전용 필드는 Legacy 사용 시 main.py에서 기본값 설정.
-`recommendation_method` 필드로 리포트/Slack에 사용된 추천 방식(Enhanced/Legacy) 표시.
+`recommendation_method` 필드로 리포트/Slack에 사용된 추천 방식(Enhanced/Legacy/Kalman) 표시.
 
 ### 기술적 지표 설명 페이지 (GitHub Pages)
 

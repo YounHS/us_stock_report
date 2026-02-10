@@ -178,8 +178,71 @@ def main(dry_run: bool = False, test_slack: bool = False):
                 recommendation.setdefault("squeeze_momentum", None)
                 recommendation.setdefault("recommendation_method", "Legacy")
 
-        # 5-1. 장기 투자 추천 종목 선정
-        logger.info("5-1. 장기 투자 추천 종목 선정 중...")
+        # 5-1. 칼만 필터 추천 종목 선정
+        logger.info("5-1. 칼만 필터 추천 종목 선정 중...")
+        exclude_tickers = [recommendation["ticker"]] if recommendation else []
+        kalman_rec = signal_detector.get_kalman_recommendation(exclude_tickers=exclude_tickers)
+        recommendation_kalman = None
+        if kalman_rec:
+            logger.info(f"   칼만 추천: {kalman_rec.ticker} (${kalman_rec.close}, 점수: {kalman_rec.score}, 칼만예측: ${kalman_rec.kalman_predicted_price:.2f})")
+            kal_analysis = analysis_results.get(kalman_rec.ticker, {})
+            kal_macd = kal_analysis.get("macd")
+            kal_bollinger = kal_analysis.get("bollinger")
+            kal_atr = kal_analysis.get("atr")
+            kal_kalman = kal_analysis.get("kalman")
+            kal_obv = kal_analysis.get("obv")
+            kal_stochastic = kal_analysis.get("stochastic")
+            kal_squeeze = kal_analysis.get("squeeze")
+
+            recommendation_kalman = {
+                "ticker": kalman_rec.ticker,
+                "score": kalman_rec.score,
+                "confidence": kalman_rec.confidence,
+                "close": kalman_rec.close,
+                "change_pct": kalman_rec.change_pct,
+                "target_price": kalman_rec.target_price,
+                "target_return": round(((kalman_rec.target_price - kalman_rec.close) / kalman_rec.close) * 100, 2) if kalman_rec.close else None,
+                "stop_loss": kalman_rec.stop_loss,
+                "risk_reward_ratio": kalman_rec.risk_reward_ratio,
+                "bullish_factors": kalman_rec.bullish_factors,
+                "warning_factors": kalman_rec.warning_factors,
+                "score_breakdown": {
+                    "rsi_score": kalman_rec.score_breakdown.rsi_score,
+                    "volume_score": kalman_rec.score_breakdown.volume_score,
+                    "adx_score": kalman_rec.score_breakdown.adx_score,
+                    "macd_score": kalman_rec.score_breakdown.macd_score,
+                    "bollinger_score": kalman_rec.score_breakdown.bollinger_score,
+                    "relative_strength_score": kalman_rec.score_breakdown.relative_strength_score,
+                    "week52_score": kalman_rec.score_breakdown.week52_score,
+                    "obv_score": kalman_rec.score_breakdown.obv_score,
+                    "stochastic_score": kalman_rec.score_breakdown.stochastic_score,
+                    "squeeze_score": kalman_rec.score_breakdown.squeeze_score,
+                },
+                "holding_period": kalman_rec.holding_period,
+                "source": kalman_rec.source,
+                "rsi": kalman_rec.rsi,
+                "adx": kalman_rec.adx,
+                "macd_signal": "골든크로스" if kal_macd and kal_macd.is_bullish_cross else None,
+                "bollinger_z_score": round(kal_bollinger.z_score, 2) if kal_bollinger else None,
+                "volume_ratio": kalman_rec.volume_ratio,
+                "atr_pct": round(kal_atr.atr / kalman_rec.close * 100, 2) if kal_atr and kalman_rec.close else None,
+                "relative_strength_20d": kalman_rec.relative_strength_20d,
+                "week52_position": kalman_rec.week52_position,
+                "kalman_predicted_price": round(kal_kalman.predicted_price, 2) if kal_kalman else None,
+                "kalman_trend_velocity": round(kal_kalman.trend_velocity, 4) if kal_kalman else None,
+                "obv_trend": kal_obv.obv_trend if kal_obv else None,
+                "stochastic_k": round(kal_stochastic.k, 1) if kal_stochastic else None,
+                "squeeze_status": "ON" if kal_squeeze and kal_squeeze.is_squeeze_on else ("OFF" if kal_squeeze else None),
+                "squeeze_momentum": kal_squeeze.momentum_direction if kal_squeeze else None,
+                "reasons": kalman_rec.bullish_factors,
+                "disclaimer": kalman_rec.disclaimer,
+                "recommendation_method": "Kalman",
+            }
+        else:
+            logger.info("   칼만 필터 추천 종목 없음")
+
+        # 5-2. 장기 투자 추천 종목 선정
+        logger.info("5-2. 장기 투자 추천 종목 선정 중...")
         longterm_recommendations = signal_detector.get_longterm_recommendations()
         if longterm_recommendations:
             logger.info(f"   장기 추천 {len(longterm_recommendations)}개 종목 선정")
@@ -219,6 +282,7 @@ def main(dry_run: bool = False, test_slack: bool = False):
             top_movers=top_movers,
             news=news,
             recommendation=recommendation,
+            recommendation_kalman=recommendation_kalman,
             economic_calendar=economic_calendar,
             earnings_calendar=earnings_calendar,
             longterm_recommendations=longterm_recommendations,
@@ -239,6 +303,7 @@ def main(dry_run: bool = False, test_slack: bool = False):
                 html_content=html_report,
                 market_summary=market_summary,
                 recommendation=recommendation,
+                recommendation_kalman=recommendation_kalman,
             )
 
             if success:

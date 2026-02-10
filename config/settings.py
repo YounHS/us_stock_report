@@ -108,6 +108,13 @@ class AnalysisSettings(BaseSettings):
     longterm_weight_obv: int = Field(default=8, alias="LONGTERM_WEIGHT_OBV")
     longterm_weight_stochastic: int = Field(default=5, alias="LONGTERM_WEIGHT_STOCHASTIC")
     longterm_weight_squeeze: int = Field(default=8, alias="LONGTERM_WEIGHT_SQUEEZE")
+    longterm_prediction_days: int = Field(default=40, alias="LONGTERM_PREDICTION_DAYS")  # N-step 예측 거래일 수 (약 2개월)
+
+    # Long-term Kalman Filter (추세 추종에 적합한 파라미터)
+    longterm_kalman_process_variance: float = Field(default=1e-3, alias="LONGTERM_KALMAN_PROCESS_VARIANCE")
+    longterm_kalman_measurement_variance: float = Field(default=1e-2, alias="LONGTERM_KALMAN_MEASUREMENT_VARIANCE")
+    longterm_kalman_blend_alpha: float = Field(default=0.7, alias="LONGTERM_KALMAN_BLEND_ALPHA")
+    longterm_kalman_sma_period: int = Field(default=50, alias="LONGTERM_KALMAN_SMA_PERIOD")
 
 
 class SlackSettings(BaseSettings):
