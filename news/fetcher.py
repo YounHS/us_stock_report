@@ -26,11 +26,25 @@ class NewsFetcher:
 
             result = []
             for item in news:
+                # yfinance 신규 구조: item["content"]["title"] / 구형: item["title"]
+                content = item.get("content", item)
+                title = content.get("title", "")
+                provider = content.get("provider", {})
+                publisher = provider.get("displayName", "") if isinstance(provider, dict) else content.get("publisher", "")
+                canonical = content.get("canonicalUrl", {})
+                link = canonical.get("url", "") if isinstance(canonical, dict) else content.get("link", "")
+                pub_date = content.get("pubDate", "") or content.get("displayTime", "")
+                # 구형 timestamp 폴백
+                if not pub_date:
+                    pub_date = self._format_timestamp(item.get("providerPublishTime", 0))
+                else:
+                    pub_date = pub_date[:16].replace("T", " ")
+
                 result.append({
-                    "title": item.get("title", ""),
-                    "link": item.get("link", ""),
-                    "publisher": item.get("publisher", ""),
-                    "published": self._format_timestamp(item.get("providerPublishTime", 0)),
+                    "title": title,
+                    "link": link,
+                    "publisher": publisher,
+                    "published": pub_date,
                     "source_ticker": ticker,
                 })
 

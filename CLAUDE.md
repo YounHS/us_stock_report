@@ -38,7 +38,7 @@ python main.py --test-slack # 테스트 Slack 메시지 발송
 
 ## Architecture
 
-데이터 흐름: `main.py` → 데이터 수집 → 기술적 분석 → 신호 감지 → 캘린더/뉴스 수집 → 리포트 생성(HTML) → PDF 변환 → Slack 발송
+데이터 흐름: `main.py` → 데이터 수집 → 기술적 분석 → 신호 감지 → 캘린더/뉴스 수집 → 뉴스 감성 분석 → 리포트 생성(HTML) → PDF 변환 → Slack 발송
 
 ### 핵심 모듈
 
@@ -52,9 +52,10 @@ python main.py --test-slack # 테스트 Slack 메시지 발송
   - `get_top_recommendation()`: 레거시 방식 (Enhanced 실패 시 폴백)
   - `get_kalman_recommendation()`: 칼만 예측가 > 현재가 필터 기반 추가 단기 추천 (기존 추천과 중복 제외)
   - `get_longterm_recommendations()`: 추세 추종 기반 장기 투자 추천 Top N
-- **news/fetcher.py**: 핫한 종목/섹터 뉴스 수집. `fetch_hot_stocks_news()`, `fetch_sector_highlights()`
+- **analysis/sentiment.py**: VADER(nltk) 기반 뉴스 헤드라인 감성 분석. `NewsSentimentAnalyzer` 클래스가 종목별 뉴스를 분석하여 5단계 라벨(매우 긍정/긍정/중립/부정/매우 부정) 및 0-100 게이지 점수 반환. VADER lazy 초기화 + lexicon 자동 다운로드 fallback. dataclass: `NewsItemSentiment`, `TickerSentiment`
+- **news/fetcher.py**: 핫한 종목/섹터 뉴스 수집. `fetch_hot_stocks_news()`, `fetch_sector_highlights()`. yfinance 신규 응답 구조(`item["content"]["title"]`) 및 구형 구조 모두 호환
 - **report/generator.py**: Jinja2로 `report/templates/daily_report.html` 렌더링
-- **notification/slack_sender.py**: Slack Bot Token 기반 메시지 + PDF 리포트 발송. 요약 메시지에 단기/칼만 추천 포함. HTML→PDF 변환은 `google-chrome --headless --print-to-pdf` 사용
+- **notification/slack_sender.py**: Slack Bot Token 기반 메시지 + PDF 리포트 발송. 요약 메시지에 단기/칼만 추천 및 뉴스 감성 정보 포함. HTML→PDF 변환은 `google-chrome --headless --print-to-pdf` 사용
 
 ### 리포트 구성
 
@@ -65,9 +66,9 @@ python main.py --test-slack # 테스트 Slack 메시지 발송
 5. 섹터별 트렌드
 6. 기술적 분석 신호 (1시그마 근접, RSI 과매도, MACD 골든크로스, 복합 신호)
 7. Top 10 상승/하락
-8. 오늘의 추천 종목 (RSI, ADX, MACD, BB Z-Score, 거래량, ATR%, SPY대비, 52주위치, 매도 목표가, 손절가, 보유 기간)
-9. 칼만 필터 추천 종목 (칼만 예측가 > 현재가 필터, 보라색 카드 레이아웃)
-10. 장기 투자 추천 Top 3 (추세 추종 기반, 녹색 카드 레이아웃)
+8. 오늘의 추천 종목 (RSI, ADX, MACD, BB Z-Score, 거래량, ATR%, SPY대비, 52주위치, 매도 목표가, 손절가, 보유 기간, 뉴스 감성 게이지)
+9. 칼만 필터 추천 종목 (칼만 예측가 > 현재가 필터, 보라색 카드 레이아웃, 뉴스 감성 게이지)
+10. 장기 투자 추천 Top 3 (추세 추종 기반, 녹색 카드 레이아웃, 축소 감성 게이지)
 
 ### 기술적 분석 파라미터
 
@@ -158,6 +159,7 @@ recommendation = {
     "bullish_factors", "warning_factors",      # 매수/주의 요인 (Enhanced만)
     "reasons", "holding_period", "source",     # 추천 근거
     "recommendation_method",                   # "Enhanced", "Legacy", 또는 "Kalman"
+    "sentiment",                               # 뉴스 감성 분석 (선택, 아래 구조 참고)
 }
 ```
 
@@ -171,8 +173,25 @@ score_breakdown = {
 }
 ```
 
+**Sentiment (뉴스 감성 분석, 선택)**:
+```python
+sentiment = {
+    "avg_compound",       # 평균 compound score (-1.0 ~ 1.0)
+    "gauge_score",        # 0-100 게이지 점수 (50=중립)
+    "label",              # 매우 긍정 / 긍정 / 중립 / 부정 / 매우 부정
+    "positive_count",     # 긍정 뉴스 건수
+    "negative_count",     # 부정 뉴스 건수
+    "neutral_count",      # 중립 뉴스 건수
+    "total_count",        # 전체 뉴스 건수
+    "news_items": [       # 개별 뉴스 감성 (최대 5건 표시)
+        {"title", "link", "compound", "label"}  # label: positive/negative/neutral
+    ]
+}
+```
+
 템플릿에서 `is not none` 체크로 None 값 처리. Enhanced 전용 필드는 Legacy 사용 시 main.py에서 기본값 설정.
 `recommendation_method` 필드로 리포트/Slack에 사용된 추천 방식(Enhanced/Legacy/Kalman) 표시.
+`sentiment` 필드는 감성 분석 성공 시에만 주입됨. 템플릿에서 `is defined` 체크로 없을 때 안전하게 생략. 감성 분석 실패해도 리포트 생성에 영향 없음 (try/except 감싸져 있음).
 
 ### 기술적 지표 설명 페이지 (GitHub Pages)
 
@@ -186,6 +205,8 @@ score_breakdown = {
 
 - **Wikipedia 스크래핑**: `config/sp500_tickers.py`에서 User-Agent 헤더 필수 (403 방지)
 - **yfinance 캐시**: `~/.cache/py-yfinance` 폴더 권한 문제 발생 시 무시 가능
+- **yfinance 뉴스 구조**: `stock.news` 응답이 `item["content"]["title"]` 중첩 구조. `news/fetcher.py`에서 신규/구형 모두 호환 처리
+- **VADER lexicon**: `nltk` 의 `vader_lexicon` 데이터 필요. `NewsSentimentAnalyzer`가 자동 다운로드 시도하지만, GitHub Actions에서는 워크플로우에 별도 다운로드 단계 포함됨
 - **템플릿 호환성**: 추천 dict 변환 시 템플릿에서 사용하는 모든 필드 포함 필요. Enhanced/Legacy 모두 `macd_signal`, `bollinger_z_score`, `atr_pct`, `target_return`, `reasons`, `kalman_predicted_price`, `kalman_trend_velocity`, `recommendation_method` 필드가 있어야 함
 - **PDF 변환**: `google-chrome --headless --print-to-pdf` 사용. 한글 출력을 위해 `fonts-noto-cjk` 필요
 - **Slack files_upload_v2**: 채널 이름이 아닌 **채널 ID**가 필요. `chat_postMessage` 응답에서 채널 ID를 추출하여 사용

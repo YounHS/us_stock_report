@@ -20,3 +20,6 @@ requests>=2.31.0
 
 # Slack notification
 slack-sdk>=3.27.0
+
+# Sentiment analysis
+nltk>=3.8.0

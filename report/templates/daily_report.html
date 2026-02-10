@@ -577,6 +577,93 @@
             text-align: center;
             margin-top: 8px;
         }
+        /* Sentiment Analysis Styles */
+        .sentiment-section {
+            background: rgba(255,255,255,0.08);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        .sentiment-section h3 {
+            font-size: 13px;
+            margin-bottom: 10px;
+            opacity: 0.9;
+        }
+        .sentiment-gauge {
+            position: relative;
+            height: 12px;
+            border-radius: 6px;
+            background: linear-gradient(to right, #dc2626, #f59e0b 50%, #16a34a);
+            margin-bottom: 6px;
+        }
+        .sentiment-gauge-marker {
+            position: absolute;
+            top: -3px;
+            width: 18px;
+            height: 18px;
+            background: white;
+            border-radius: 50%;
+            border: 2px solid rgba(0,0,0,0.3);
+            transform: translateX(-50%);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+        .sentiment-label {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 10px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+        .sentiment-label-very-positive { background: #16a34a; color: white; }
+        .sentiment-label-positive { background: #65a30d; color: white; }
+        .sentiment-label-neutral { background: #9ca3af; color: white; }
+        .sentiment-label-negative { background: #ea580c; color: white; }
+        .sentiment-label-very-negative { background: #dc2626; color: white; }
+        .sentiment-news-list {
+            margin-top: 8px;
+            font-size: 12px;
+        }
+        .sentiment-news-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 6px;
+            padding: 4px 0;
+        }
+        .sentiment-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            margin-top: 4px;
+        }
+        .sentiment-dot-positive { background: #16a34a; }
+        .sentiment-dot-negative { background: #dc2626; }
+        .sentiment-dot-neutral { background: #9ca3af; }
+        .sentiment-news-item a {
+            color: rgba(255,255,255,0.85);
+            text-decoration: none;
+            font-size: 11px;
+            line-height: 1.4;
+        }
+        .sentiment-news-item a:hover {
+            text-decoration: underline;
+        }
+        .sentiment-compact {
+            background: rgba(255,255,255,0.08);
+            border-radius: 6px;
+            padding: 8px 10px;
+            margin-top: 10px;
+        }
+        .sentiment-compact .sentiment-gauge {
+            height: 8px;
+            margin-bottom: 4px;
+        }
+        .sentiment-compact .sentiment-gauge-marker {
+            width: 14px;
+            height: 14px;
+            top: -3px;
+        }
     </style>
 </head>
 <body>
@@ -1208,6 +1295,32 @@
             </div>
             {% endif %}
 
+            <!-- 뉴스 감성 분석 -->
+            {% if recommendation.sentiment is defined and recommendation.sentiment %}
+            <div class="sentiment-section">
+                <h3>뉴스 감성 분석</h3>
+                <div class="sentiment-gauge">
+                    <div class="sentiment-gauge-marker" style="left: {{ recommendation.sentiment.gauge_score }}%"></div>
+                </div>
+                <span class="sentiment-label sentiment-label-{% if recommendation.sentiment.label == '매우 긍정' %}very-positive{% elif recommendation.sentiment.label == '긍정' %}positive{% elif recommendation.sentiment.label == '중립' %}neutral{% elif recommendation.sentiment.label == '부정' %}negative{% else %}very-negative{% endif %}">
+                    {{ recommendation.sentiment.label }}
+                </span>
+                <span style="font-size: 11px; opacity: 0.7; margin-left: 6px;">
+                    ({{ recommendation.sentiment.positive_count }}+ / {{ recommendation.sentiment.negative_count }}- / {{ recommendation.sentiment.neutral_count }}=)
+                </span>
+                {% if recommendation.sentiment.news_items %}
+                <div class="sentiment-news-list">
+                    {% for ni in recommendation.sentiment.news_items[:5] %}
+                    <div class="sentiment-news-item">
+                        <span class="sentiment-dot sentiment-dot-{{ ni.label }}"></span>
+                        <a href="{{ ni.link }}" target="_blank">{{ ni.title }}</a>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+
             <div class="recommendation-meta">
                 <div class="recommendation-meta-item">
                     <div class="label">추천 보유 기간</div>
@@ -1498,6 +1611,32 @@
             </div>
             {% endif %}
 
+            <!-- 뉴스 감성 분석 -->
+            {% if recommendation_kalman.sentiment is defined and recommendation_kalman.sentiment %}
+            <div class="sentiment-section">
+                <h3>뉴스 감성 분석</h3>
+                <div class="sentiment-gauge">
+                    <div class="sentiment-gauge-marker" style="left: {{ recommendation_kalman.sentiment.gauge_score }}%"></div>
+                </div>
+                <span class="sentiment-label sentiment-label-{% if recommendation_kalman.sentiment.label == '매우 긍정' %}very-positive{% elif recommendation_kalman.sentiment.label == '긍정' %}positive{% elif recommendation_kalman.sentiment.label == '중립' %}neutral{% elif recommendation_kalman.sentiment.label == '부정' %}negative{% else %}very-negative{% endif %}">
+                    {{ recommendation_kalman.sentiment.label }}
+                </span>
+                <span style="font-size: 11px; opacity: 0.7; margin-left: 6px;">
+                    ({{ recommendation_kalman.sentiment.positive_count }}+ / {{ recommendation_kalman.sentiment.negative_count }}- / {{ recommendation_kalman.sentiment.neutral_count }}=)
+                </span>
+                {% if recommendation_kalman.sentiment.news_items %}
+                <div class="sentiment-news-list">
+                    {% for ni in recommendation_kalman.sentiment.news_items[:5] %}
+                    <div class="sentiment-news-item">
+                        <span class="sentiment-dot sentiment-dot-{{ ni.label }}"></span>
+                        <a href="{{ ni.link }}" target="_blank">{{ ni.title }}</a>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+
             <div class="recommendation-meta">
                 <div class="recommendation-meta-item">
                     <div class="label">추천 보유 기간</div>
@@ -1626,6 +1765,18 @@
                             <li>{{ reason }}</li>
                             {% endfor %}
                         </ul>
+                    </div>
+                    {% endif %}
+                    {% if rec.sentiment is defined and rec.sentiment %}
+                    <div class="sentiment-compact">
+                        <div style="font-size: 10px; opacity: 0.7; margin-bottom: 4px;">뉴스 감성</div>
+                        <div class="sentiment-gauge">
+                            <div class="sentiment-gauge-marker" style="left: {{ rec.sentiment.gauge_score }}%"></div>
+                        </div>
+                        <span class="sentiment-label sentiment-label-{% if rec.sentiment.label == '매우 긍정' %}very-positive{% elif rec.sentiment.label == '긍정' %}positive{% elif rec.sentiment.label == '중립' %}neutral{% elif rec.sentiment.label == '부정' %}negative{% else %}very-negative{% endif %}" style="font-size: 10px; padding: 1px 6px;">
+                            {{ rec.sentiment.label }}
+                        </span>
+                        <span style="font-size: 10px; opacity: 0.6;">({{ rec.sentiment.positive_count }}+ / {{ rec.sentiment.negative_count }}-)</span>
                     </div>
                     {% endif %}
                 </div>

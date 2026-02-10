@@ -24,6 +24,7 @@ from data.calendar import EconomicCalendar, EarningsCalendar
 from analysis.technical import TechnicalAnalyzer
 from analysis.sector import SectorAnalyzer
 from analysis.signals import SignalDetector
+from analysis.sentiment import NewsSentimentAnalyzer
 from news.fetcher import NewsFetcher
 from report.generator import ReportGenerator
 # from notification.email_sender import EmailSender
@@ -270,6 +271,69 @@ def main(dry_run: bool = False, test_slack: bool = False):
         earnings_cal = EarningsCalendar()
         earnings_calendar = earnings_cal.get_week_calendar()
         logger.info(f"   실적 발표 캘린더 로드 완료")
+
+        # 6-3. 추천 종목 뉴스 감성 분석
+        try:
+            logger.info("6-3. 추천 종목 뉴스 감성 분석 중...")
+            sentiment_tickers = []
+            if recommendation:
+                sentiment_tickers.append(recommendation["ticker"])
+            if recommendation_kalman:
+                sentiment_tickers.append(recommendation_kalman["ticker"])
+            if longterm_recommendations:
+                for lt_rec in longterm_recommendations:
+                    sentiment_tickers.append(lt_rec["ticker"])
+
+            if sentiment_tickers:
+                ticker_news_map = {}
+                for t in sentiment_tickers:
+                    t_news = news_fetcher.fetch_ticker_news(t)
+                    if t_news:
+                        ticker_news_map[t] = t_news
+
+                sentiment_analyzer = NewsSentimentAnalyzer()
+                sentiment_results = sentiment_analyzer.analyze_multiple_tickers(ticker_news_map)
+                logger.info(f"   {len(sentiment_results)}개 종목 감성 분석 완료")
+
+                def _sentiment_to_dict(ts):
+                    """TickerSentiment를 dict로 변환"""
+                    return {
+                        "avg_compound": ts.avg_compound,
+                        "gauge_score": ts.gauge_score,
+                        "label": ts.label,
+                        "positive_count": ts.positive_count,
+                        "negative_count": ts.negative_count,
+                        "neutral_count": ts.neutral_count,
+                        "total_count": ts.total_count,
+                        "news_items": [
+                            {
+                                "title": ni.title,
+                                "link": ni.link,
+                                "compound": ni.compound,
+                                "label": ni.label,
+                            }
+                            for ni in ts.news_items
+                        ],
+                    }
+
+                if recommendation and recommendation["ticker"] in sentiment_results:
+                    recommendation["sentiment"] = _sentiment_to_dict(
+                        sentiment_results[recommendation["ticker"]]
+                    )
+                if recommendation_kalman and recommendation_kalman["ticker"] in sentiment_results:
+                    recommendation_kalman["sentiment"] = _sentiment_to_dict(
+                        sentiment_results[recommendation_kalman["ticker"]]
+                    )
+                if longterm_recommendations:
+                    for lt_rec in longterm_recommendations:
+                        if lt_rec["ticker"] in sentiment_results:
+                            lt_rec["sentiment"] = _sentiment_to_dict(
+                                sentiment_results[lt_rec["ticker"]]
+                            )
+            else:
+                logger.info("   감성 분석 대상 종목 없음")
+        except Exception as e:
+            logger.warning(f"   감성 분석 실패 (리포트 생성 계속): {e}")
 
         # 7. 리포트 생성
         logger.info("7. 리포트 생성 중...")

@@ -77,6 +77,10 @@ class SlackSender:
                     parts.append(f"ADX: {adx:.1f}")
                 lines.append(f"  {' | '.join(parts)}")
 
+            sentiment = recommendation.get("sentiment")
+            if sentiment:
+                lines.append(f"  뉴스 감성: {sentiment['label']} ({sentiment['positive_count']}+ / {sentiment['negative_count']}-)")
+
         # 칼만 필터 추천 종목
         if recommendation_kalman:
             method = recommendation_kalman.get("recommendation_method", "")
@@ -100,6 +104,10 @@ class SlackSender:
                 lines.append(f"  현재가: ${kal_close:.2f}{target_str}")
             if kal_kalman_price is not None:
                 lines.append(f"  칼만 예측가: ${kal_kalman_price:.2f}")
+
+            kal_sentiment = recommendation_kalman.get("sentiment")
+            if kal_sentiment:
+                lines.append(f"  뉴스 감성: {kal_sentiment['label']} ({kal_sentiment['positive_count']}+ / {kal_sentiment['negative_count']}-)")
 
         lines.append("")
         lines.append("상세 리포트는 첨부 파일을 확인하세요.")
