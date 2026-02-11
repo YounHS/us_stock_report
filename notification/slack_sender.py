@@ -213,6 +213,7 @@ class SlackSender:
         market_summary: Optional[dict] = None,
         premarket_data: Optional[dict] = None,
         significant_movers: Optional[dict] = None,
+        opening_surge_recommendations: Optional[list] = None,
     ) -> str:
         """프리마켓 Slack 요약 메시지 텍스트 생성"""
         tz = ZoneInfo(settings.general.timezone)
@@ -250,6 +251,18 @@ class SlackSender:
                 for l in losers[:5]:
                     lines.append(f"  {l['ticker']}: {l['pre_market_change_pct']}%")
 
+        # 개장 급등 추천
+        if opening_surge_recommendations:
+            lines.append("")
+            lines.append("*개장 급등 추천 (Opening Surge)*")
+            for rec in opening_surge_recommendations:
+                ticker = rec.get("ticker", "")
+                pm_pct = rec.get("pm_change_pct", 0)
+                score = rec.get("score", 0)
+                target = rec.get("target_price", 0)
+                stop = rec.get("stop_loss", 0)
+                lines.append(f"  {ticker}: PM +{pm_pct:.2f}% | 점수: {score} | 목표: ${target:.2f} | 손절: ${stop:.2f}")
+
         lines.append("")
         lines.append("상세 리포트는 첨부 파일을 확인하세요.")
 
@@ -261,6 +274,7 @@ class SlackSender:
         market_summary: Optional[dict] = None,
         premarket_data: Optional[dict] = None,
         significant_movers: Optional[dict] = None,
+        opening_surge_recommendations: Optional[list] = None,
     ) -> bool:
         """
         프리마켓 리포트 Slack 발송
@@ -286,7 +300,8 @@ class SlackSender:
         date_str = datetime.now(tz).strftime("%Y-%m-%d")
 
         summary_text = self._build_premarket_summary_text(
-            market_summary, premarket_data, significant_movers
+            market_summary, premarket_data, significant_movers,
+            opening_surge_recommendations,
         )
 
         try:

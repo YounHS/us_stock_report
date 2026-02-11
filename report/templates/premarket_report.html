@@ -342,6 +342,120 @@
             padding: 4px;
         }
 
+        /* 개장 급등 추천 카드 */
+        .surge-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 14px;
+            margin-top: 15px;
+        }
+        .surge-card {
+            background: linear-gradient(135deg, #dc2626 0%, #ea580c 100%);
+            border-radius: 10px;
+            padding: 18px;
+            color: white;
+        }
+        .surge-card .surge-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .surge-card .ticker-symbol {
+            font-size: 22px;
+            font-weight: 800;
+        }
+        .surge-card .score-badge {
+            background: rgba(255,255,255,0.25);
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 13px;
+            font-weight: 700;
+        }
+        .surge-card .pm-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-bottom: 8px;
+        }
+        .surge-card .pm-price {
+            font-size: 20px;
+            font-weight: 700;
+        }
+        .surge-card .pm-change {
+            font-size: 14px;
+            font-weight: 600;
+            background: rgba(255,255,255,0.2);
+            padding: 2px 8px;
+            border-radius: 8px;
+        }
+        .surge-card .prev-close {
+            font-size: 11px;
+            opacity: 0.7;
+            margin-bottom: 10px;
+        }
+        .surge-card .targets {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+        .surge-card .target-box {
+            background: rgba(255,255,255,0.15);
+            border-radius: 6px;
+            padding: 8px;
+            text-align: center;
+        }
+        .surge-card .target-box .label {
+            font-size: 10px;
+            opacity: 0.8;
+        }
+        .surge-card .target-box .value {
+            font-size: 14px;
+            font-weight: 700;
+        }
+        .surge-card .indicators {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 5px;
+            margin-bottom: 10px;
+        }
+        .surge-card .ind-item {
+            background: rgba(255,255,255,0.1);
+            border-radius: 4px;
+            padding: 5px;
+            text-align: center;
+        }
+        .surge-card .ind-item .label {
+            font-size: 9px;
+            opacity: 0.7;
+        }
+        .surge-card .ind-item .value {
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .surge-card .reasons {
+            font-size: 11px;
+            opacity: 0.9;
+            margin-bottom: 6px;
+        }
+        .surge-card .reasons li {
+            margin-bottom: 2px;
+        }
+        .surge-card .warnings {
+            font-size: 10px;
+            opacity: 0.7;
+        }
+        .surge-card .holding {
+            font-size: 10px;
+            opacity: 0.8;
+            margin-top: 8px;
+            text-align: center;
+            background: rgba(255,255,255,0.1);
+            padding: 4px;
+            border-radius: 4px;
+        }
+
         .empty-message {
             color: #6b7280;
             font-style: italic;
@@ -483,6 +597,101 @@
             <div class="empty-message">프리마켓에서 1% 이상 변동한 종목이 없습니다.</div>
             {% endif %}
         </div>
+
+        <!-- 4-1. 개장 급등 추천 (Opening Surge) -->
+        {% if opening_surge_recommendations %}
+        <div class="section">
+            <h2 style="border-left-color: #dc2626;">개장 급등 추천 (Opening Surge)</h2>
+            <div class="surge-grid">
+                {% for rec in opening_surge_recommendations %}
+                <div class="surge-card">
+                    <div class="surge-header">
+                        <span class="ticker-symbol">{{ rec.ticker }}</span>
+                        <span class="score-badge">{{ rec.score }}점</span>
+                    </div>
+                    <div class="pm-row">
+                        <span class="pm-price">${{ rec.pm_price }}</span>
+                        <span class="pm-change">PM +{{ rec.pm_change_pct }}%</span>
+                    </div>
+                    <div class="prev-close">전일종가 ${{ rec.close }} ({{ '+' if rec.change_pct > 0 else '' }}{{ '%.2f'|format(rec.change_pct) }}%)</div>
+                    <div class="targets">
+                        <div class="target-box">
+                            <div class="label">목표가 (+{{ '%.1f'|format(((rec.target_price - rec.pm_price) / rec.pm_price * 100) if rec.pm_price else 0) }}%)</div>
+                            <div class="value" style="color: #4ade80;">${{ rec.target_price }}</div>
+                        </div>
+                        <div class="target-box">
+                            <div class="label">손절가 (-{{ '%.1f'|format(((rec.pm_price - rec.stop_loss) / rec.pm_price * 100) if rec.pm_price else 0) }}%)</div>
+                            <div class="value" style="color: #fca5a5;">${{ rec.stop_loss }}</div>
+                        </div>
+                    </div>
+                    <div class="indicators">
+                        {% if rec.rsi is not none %}
+                        <div class="ind-item">
+                            <div class="label">RSI</div>
+                            <div class="value">{{ rec.rsi }}</div>
+                        </div>
+                        {% endif %}
+                        {% if rec.adx is not none %}
+                        <div class="ind-item">
+                            <div class="label">ADX</div>
+                            <div class="value">{{ rec.adx }}</div>
+                        </div>
+                        {% endif %}
+                        {% if rec.volume_ratio is not none %}
+                        <div class="ind-item">
+                            <div class="label">거래량</div>
+                            <div class="value">{{ rec.volume_ratio }}x</div>
+                        </div>
+                        {% endif %}
+                        {% if rec.squeeze_status %}
+                        <div class="ind-item">
+                            <div class="label">Squeeze</div>
+                            <div class="value">{{ rec.squeeze_status }}</div>
+                        </div>
+                        {% endif %}
+                        {% if rec.stochastic_k is not none %}
+                        <div class="ind-item">
+                            <div class="label">%K</div>
+                            <div class="value">{{ rec.stochastic_k }}</div>
+                        </div>
+                        {% endif %}
+                        {% if rec.relative_strength_20d is not none %}
+                        <div class="ind-item">
+                            <div class="label">RS 20d</div>
+                            <div class="value">{{ rec.relative_strength_20d }}%</div>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% if rec.reasons %}
+                    <div class="reasons">
+                        <ul style="margin: 0; padding-left: 16px;">
+                        {% for reason in rec.reasons %}
+                            <li>{{ reason }}</li>
+                        {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+                    {% if rec.sentiment %}
+                    <div style="margin: 6px 0; text-align: center;">
+                        <span class="sentiment-badge sentiment-{{ 'very-positive' if rec.sentiment.label == '매우 긍정' else 'positive' if rec.sentiment.label == '긍정' else 'neutral' if rec.sentiment.label == '중립' else 'negative' if rec.sentiment.label == '부정' else 'very-negative' }}">
+                            {{ rec.sentiment.label }}
+                            {% if rec.sentiment.positive_count is defined %}({{ rec.sentiment.positive_count }}+ / {{ rec.sentiment.negative_count }}-){% endif %}
+                        </span>
+                    </div>
+                    {% endif %}
+                    {% if rec.warning_factors %}
+                    <div class="warnings">
+                        {% for w in rec.warning_factors %}
+                        <span style="margin-right: 4px;">⚠ {{ w }}</span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    <div class="holding">보유기간: {{ rec.holding_period }}</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
 
         <!-- 5. 전일 추천 종목 현황 -->
         {% if previous_recommendations %}

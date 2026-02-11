@@ -116,6 +116,23 @@ class AnalysisSettings(BaseSettings):
     longterm_kalman_blend_alpha: float = Field(default=0.7, alias="LONGTERM_KALMAN_BLEND_ALPHA")
     longterm_kalman_sma_period: int = Field(default=50, alias="LONGTERM_KALMAN_SMA_PERIOD")
 
+    # Opening Surge Recommendation (총합 100점)
+    surge_top_n: int = Field(default=3, alias="SURGE_TOP_N")
+    surge_min_score: int = Field(default=30, alias="SURGE_MIN_SCORE")
+    surge_min_pm_change_pct: float = Field(default=1.5, alias="SURGE_MIN_PM_CHANGE_PCT")
+    surge_atr_target_multiplier: float = Field(default=1.0, alias="SURGE_ATR_TARGET_MULT")
+    surge_atr_stop_multiplier: float = Field(default=0.5, alias="SURGE_ATR_STOP_MULT")
+
+    # Surge Scoring weights (총합 100)
+    surge_weight_pm_momentum: int = Field(default=25, alias="SURGE_WEIGHT_PM_MOMENTUM")
+    surge_weight_news_catalyst: int = Field(default=20, alias="SURGE_WEIGHT_NEWS_CATALYST")
+    surge_weight_volume: int = Field(default=15, alias="SURGE_WEIGHT_VOLUME")
+    surge_weight_gap: int = Field(default=10, alias="SURGE_WEIGHT_GAP")
+    surge_weight_squeeze: int = Field(default=10, alias="SURGE_WEIGHT_SQUEEZE")
+    surge_weight_relative_strength: int = Field(default=8, alias="SURGE_WEIGHT_RS")
+    surge_weight_adx: int = Field(default=7, alias="SURGE_WEIGHT_ADX")
+    surge_weight_stochastic: int = Field(default=5, alias="SURGE_WEIGHT_STOCHASTIC")
+
 
 class SlackSettings(BaseSettings):
     bot_token: str = Field(default="", alias="SLACK_BOT_TOKEN")

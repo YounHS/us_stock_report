@@ -28,6 +28,7 @@ from data.premarket_tickers import (
 )
 from data.calendar import EconomicCalendar, EarningsCalendar
 from analysis.technical import TechnicalAnalyzer
+from analysis.signals import SignalDetector
 from analysis.sentiment import NewsSentimentAnalyzer
 from news.fetcher import NewsFetcher
 from report.premarket_generator import PreMarketReportGenerator
@@ -141,6 +142,8 @@ def main(dry_run: bool = False):
         logger.info(f"   {len(news.get('market_news', []))}개 시장 뉴스 수집")
 
         # 6-1. 주요 변동 종목 감성 분석
+        ticker_news_map = {}
+        sentiment_results = {}
         try:
             logger.info("6-1. 주요 변동 종목 감성 분석 중...")
             sentiment_tickers = []
@@ -188,6 +191,60 @@ def main(dry_run: bool = False):
         except Exception as e:
             logger.warning(f"   감성 분석 실패 (리포트 생성 계속): {e}")
 
+        # 6-2. 개장 급등 추천
+        opening_surge_recommendations = []
+        try:
+            logger.info("6-2. 개장 급등 추천 분석 중...")
+            signal_detector = SignalDetector(analysis_results)
+
+            # PM +1.5% 이상 gainer 종목의 뉴스 추가 수집 + 감성 분석
+            surge_sentiment = {}
+            pm_gainers = [
+                g.ticker for g in significant_movers_raw["gainers"]
+                if g.pre_market_change_pct is not None
+                and g.pre_market_change_pct >= settings.analysis.surge_min_pm_change_pct
+            ]
+            if pm_gainers:
+                surge_news_map = {}
+                for t in pm_gainers:
+                    if t not in ticker_news_map:
+                        t_news = news_fetcher.fetch_ticker_news(t)
+                        if t_news:
+                            surge_news_map[t] = t_news
+                    else:
+                        surge_news_map[t] = ticker_news_map[t]
+
+                if surge_news_map:
+                    surge_analyzer = NewsSentimentAnalyzer()
+                    surge_sentiment = surge_analyzer.analyze_multiple_tickers(surge_news_map)
+
+            # 기존 sentiment_results와 병합
+            all_surge_sentiment = dict(sentiment_results)
+            all_surge_sentiment.update(surge_sentiment)
+
+            opening_surge_recommendations = signal_detector.get_opening_surge_recommendations(
+                premarket_data=premarket_data,
+                sentiment_results=all_surge_sentiment,
+            )
+
+            # 추천 종목에 sentiment dict 주입 (아직 없는 경우)
+            for rec in opening_surge_recommendations:
+                t = rec["ticker"]
+                if rec.get("sentiment") is None and t in all_surge_sentiment:
+                    ts = all_surge_sentiment[t]
+                    rec["sentiment"] = {
+                        "label": ts.label,
+                        "gauge_score": ts.gauge_score,
+                        "avg_compound": ts.avg_compound,
+                        "positive_count": ts.positive_count,
+                        "negative_count": ts.negative_count,
+                    }
+
+            logger.info(f"   개장 급등 추천 {len(opening_surge_recommendations)}개 종목 선정")
+        except Exception as e:
+            logger.warning(f"   개장 급등 추천 실패 (리포트 생성 계속): {e}")
+            opening_surge_recommendations = []
+
         # 7. 경제/실적 캘린더
         logger.info("7. 경제/실적 캘린더 수집 중...")
         economic_cal = EconomicCalendar()
@@ -208,6 +265,7 @@ def main(dry_run: bool = False):
             economic_calendar=economic_calendar,
             earnings_calendar=earnings_calendar,
             news=news,
+            opening_surge_recommendations=opening_surge_recommendations,
         )
 
         report_path = report_gen.save_to_file(html_report)
@@ -225,6 +283,7 @@ def main(dry_run: bool = False):
                 market_summary=market_summary,
                 premarket_data=market_premarket,
                 significant_movers=significant_movers,
+                opening_surge_recommendations=opening_surge_recommendations,
             )
 
             if success:

@@ -67,6 +67,7 @@ python main_premarket.py --dry-run    # 발송 없이 리포트만 생성
   - `get_top_recommendation()`: 레거시 방식 (Enhanced 실패 시 폴백)
   - `get_kalman_recommendation()`: 칼만 예측가 > 현재가 필터 기반 추가 단기 추천 (기존 추천과 중복 제외)
   - `get_longterm_recommendations()`: 추세 추종 기반 장기 투자 추천 Top N
+  - `get_opening_surge_recommendations()`: 프리마켓 모멘텀 + 뉴스 촉매 + 기술적 돌파 기반 개장 급등 추천 Top N
 - **analysis/sentiment.py**: VADER(nltk) 기반 뉴스 헤드라인 감성 분석. `NewsSentimentAnalyzer` 클래스가 종목별 뉴스를 분석하여 5단계 라벨(매우 긍정/긍정/중립/부정/매우 부정) 및 0-100 게이지 점수 반환. VADER lazy 초기화 + lexicon 자동 다운로드 fallback. dataclass: `NewsItemSentiment`, `TickerSentiment`
 - **data/premarket.py**: `yf.Ticker(symbol).info`로 프리마켓 가격 개별 조회. `PreMarketFetcher.fetch_batch()`, `get_significant_movers()` (±1% 변동 필터). dataclass: `PreMarketData`
 - **data/premarket_tickers.py**: 프리마켓 대상 종목 관리. `save_recommendations()` / `load_previous_recommendations()` (JSON 파일 기반), `get_todays_earnings_tickers()`, `get_premarket_tickers()` (시장 ETF + 섹터 ETF + 전일 추천 + 당일 실적 합산)
@@ -94,6 +95,7 @@ python main_premarket.py --dry-run    # 발송 없이 리포트만 생성
 2. 시장 지수 프리마켓: SPY/QQQ/DIA/IWM — 전일종가, PM가격, PM변동%
 3. 섹터 ETF 프리마켓: 11개 섹터 ETF 히트맵 (변동% 색상 강도)
 4. 프리마켓 주요 변동: 상승/하락 테이블 (±1% 이상)
+4-1. 개장 급등 추천 (Opening Surge): PM +1.5%이상 종목 중 점수 상위 3개, 빨강-오렌지 카드
 5. 전일 추천 종목 현황: PM변동 + RSI/MACD/칼만예측가 오버레이
 6. 경제 캘린더
 7. 실적 발표 캘린더
@@ -108,6 +110,7 @@ python main_premarket.py --dry-run    # 발송 없이 리포트만 생성
 - 볼린저밴드: 20일 SMA ± 2σ, Z-score로 1시그마 근접 판별 (-1.2 ≤ z ≤ -0.8)
 - 칼만 필터 (단기, `calculate_kalman_filter`): process_variance=1e-5, measurement_variance=1e-2, blend_alpha=0.5 (20일 Bollinger SMA와 블렌딩, 1-step 예측)
 - 칼만 필터 (장기, `calculate_kalman_filter_longterm`): process_variance=1e-3 (단기 대비 100배), measurement_variance=1e-2, blend_alpha=0.7 (50일 SMA와 블렌딩, N-step 예측 N=`longterm_prediction_days` 기본 40거래일 ≈ 2개월). `longterm_kalman_sma_period`=50
+- 개장 급등 (Opening Surge): `surge_top_n`=3, `surge_min_score`=30, `surge_min_pm_change_pct`=1.5%, `surge_atr_target_multiplier`=1.0, `surge_atr_stop_multiplier`=0.5 (ATR 기반 동적 목표가/손절가)
 - OBV: 20일 SMA 기준, 매집(accumulation)/분산(distribution)/중립(neutral) 추세 판별
 - Stochastic: %K=14일, %D=3일 SMA, 과매도(<20), 과매수(>80)
 - TTM Squeeze: 볼린저밴드 20일/2σ, 켈트너채널 20일/1.5ATR. Squeeze ON = 변동성 수축
@@ -154,6 +157,15 @@ python main_premarket.py --dry-run    # 발송 없이 리포트만 생성
 - SPY, QQQ, DIA, IWM 제외
 - 가중치 합계 100점: ADX(15) > MACD/상대강도(12) > RSI/볼린저/거래량/52주/칼만/OBV/Squeeze(8) > Stochastic(5)
 - 최소 점수(`longterm_min_score`) 이상만 추천 대상, 점수 내림차순 Top N
+
+**개장 급등 추천 방식** (`get_opening_surge_recommendations()`):
+- 프리마켓 모멘텀 + 뉴스 촉매 + 기술적 돌파 중심의 인트라데이 전략
+- 하드 필터: PM 데이터 필수, PM 변동 >= `surge_min_pm_change_pct`(기본 1.5%), ADX>30+bearish 제외, RSI>85 제외 (레버리지 ETF 포함 허용)
+- 가중치 합계 100점: PM모멘텀(25) > 뉴스촉매(20) > 거래량(15) > 갭설정(10) > Squeeze(10) > 상대강도(8) > ADX(7) > Stochastic(5)
+- `surge_min_score`(기본 30) 이상만 추천 대상, 점수 내림차순 Top N(기본 3)
+- 목표가: PM가격 + ATR × `surge_atr_target_multiplier`, 손절가: PM가격 - ATR × `surge_atr_stop_multiplier` (ATR 없을 시 2% 추정)
+- 보유 기간: 30분~1시간
+- 리포트에서 빨강-오렌지 그라데이션 카드로 표시
 
 **추천에 포함되는 기술적 지표** (12개):
 - RSI, ADX, MACD (골든크로스 여부), 볼린저밴드 Z-Score

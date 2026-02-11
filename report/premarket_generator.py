@@ -33,6 +33,7 @@ class PreMarketReportGenerator:
         earnings_calendar: Optional[Dict] = None,
         news: Optional[Dict] = None,
         report_date: Optional[str] = None,
+        opening_surge_recommendations: Optional[List[Dict]] = None,
     ) -> str:
         """
         프리마켓 리포트 HTML 생성
@@ -64,6 +65,7 @@ class PreMarketReportGenerator:
             "economic_calendar": economic_calendar,
             "earnings_calendar": earnings_calendar,
             "news": news,
+            "opening_surge_recommendations": opening_surge_recommendations or [],
         }
 
         return template.render(**context)

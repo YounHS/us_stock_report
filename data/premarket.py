@@ -17,6 +17,10 @@ class PreMarketData:
     pre_market_change_pct: Optional[float]
     regular_previous_close: Optional[float]
     has_premarket: bool
+    pre_market_volume: Optional[int] = None
+    regular_market_volume: Optional[int] = None
+    average_volume: Optional[int] = None
+    average_volume_10d: Optional[int] = None
 
 
 class PreMarketFetcher:
@@ -37,6 +41,12 @@ class PreMarketFetcher:
             pm_price = info.get("preMarketPrice")
             prev_close = info.get("regularMarketPreviousClose")
 
+            # 거래량 정보 추출
+            pm_volume = info.get("preMarketVolume")
+            reg_volume = info.get("regularMarketVolume")
+            avg_volume = info.get("averageVolume")
+            avg_vol_10d = info.get("averageDailyVolume10Day")
+
             if pm_price is not None and prev_close is not None and prev_close > 0:
                 change = round(pm_price - prev_close, 2)
                 change_pct = round((change / prev_close) * 100, 2)
@@ -47,6 +57,10 @@ class PreMarketFetcher:
                     pre_market_change_pct=change_pct,
                     regular_previous_close=round(prev_close, 2),
                     has_premarket=True,
+                    pre_market_volume=pm_volume,
+                    regular_market_volume=reg_volume,
+                    average_volume=avg_volume,
+                    average_volume_10d=avg_vol_10d,
                 )
 
             return PreMarketData(
@@ -56,6 +70,10 @@ class PreMarketFetcher:
                 pre_market_change_pct=None,
                 regular_previous_close=round(prev_close, 2) if prev_close else None,
                 has_premarket=False,
+                pre_market_volume=pm_volume,
+                regular_market_volume=reg_volume,
+                average_volume=avg_volume,
+                average_volume_10d=avg_vol_10d,
             )
 
         except Exception as e:

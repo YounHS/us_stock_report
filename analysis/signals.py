@@ -52,6 +52,32 @@ class ScoreBreakdown:
 
 
 @dataclass
+class SurgeScoreBreakdown:
+    """개장 급등 추천 점수 구성 상세"""
+    pm_momentum_score: int = 0     # 최대 25
+    news_catalyst_score: int = 0   # 최대 20
+    volume_surge_score: int = 0    # 최대 15
+    gap_setup_score: int = 0       # 최대 10
+    squeeze_release_score: int = 0 # 최대 10
+    relative_strength_score: int = 0  # 최대 8
+    adx_score: int = 0             # 최대 7
+    stochastic_score: int = 0      # 최대 5
+
+    @property
+    def total(self) -> int:
+        return (
+            self.pm_momentum_score
+            + self.news_catalyst_score
+            + self.volume_surge_score
+            + self.gap_setup_score
+            + self.squeeze_release_score
+            + self.relative_strength_score
+            + self.adx_score
+            + self.stochastic_score
+        )
+
+
+@dataclass
 class EnhancedRecommendation:
     """향상된 추천 정보"""
     ticker: str
@@ -1450,6 +1476,342 @@ class SignalDetector:
             }
 
             logger.info(f"   [Long-term] 추천: {ticker} (점수: {score})")
+            results.append(rec)
+
+        return results
+
+    # ============================
+    # Opening Surge Recommendation
+    # ============================
+
+    def _surge_passes_hard_filters(self, ticker: str, analysis: Dict, pm_data) -> bool:
+        """개장 급등 추천 하드 필터"""
+        # PM 데이터 필수
+        if not pm_data or not pm_data.has_premarket:
+            return False
+
+        # PM 변동 >= surge_min_pm_change_pct
+        if pm_data.pre_market_change_pct is None or pm_data.pre_market_change_pct < settings.analysis.surge_min_pm_change_pct:
+            return False
+
+        # 강한 하락 추세 제외 (ADX > 30 + bearish)
+        adx = analysis.get("adx")
+        if adx and adx.adx > 30 and adx.trend_direction == "bearish":
+            return False
+
+        # RSI > 85 제외 (극단적 과매수)
+        rsi = analysis.get("rsi")
+        if rsi and rsi.value > 85:
+            return False
+
+        return True
+
+    def _surge_pm_momentum_score(self, pm_data) -> int:
+        """PM 모멘텀 점수 (최대 surge_weight_pm_momentum점)"""
+        weight = settings.analysis.surge_weight_pm_momentum
+        pct = pm_data.pre_market_change_pct or 0
+
+        if pct >= 5.0:
+            return weight
+        elif pct >= 3.0:
+            return int(weight * 0.8)
+        elif pct >= 2.0:
+            return int(weight * 0.6)
+        elif pct >= 1.5:
+            return int(weight * 0.4)
+        return 0
+
+    def _surge_news_catalyst_score(self, sentiment) -> int:
+        """뉴스 촉매 점수 (최대 surge_weight_news_catalyst점)"""
+        weight = settings.analysis.surge_weight_news_catalyst
+
+        if not sentiment:
+            return 0
+
+        avg = sentiment.avg_compound if hasattr(sentiment, 'avg_compound') else sentiment.get("avg_compound", 0)
+
+        if avg >= 0.35:
+            return weight
+        elif avg >= 0.15:
+            return int(weight * 0.7)
+        elif avg >= 0.05:
+            return int(weight * 0.4)
+        return 0
+
+    def _surge_volume_score(self, analysis: Dict, pm_data) -> int:
+        """거래량 급증 점수 (최대 surge_weight_volume점)"""
+        weight = settings.analysis.surge_weight_volume
+
+        # PM 거래량 / 평균 거래량 비율
+        pm_vol = pm_data.pre_market_volume
+        avg_vol = pm_data.average_volume or pm_data.average_volume_10d
+
+        if pm_vol and avg_vol and avg_vol > 0:
+            ratio = pm_vol / avg_vol
+            if ratio >= 0.3:
+                return weight
+            elif ratio >= 0.15:
+                return int(weight * 0.67)
+            elif ratio >= 0.05:
+                return int(weight * 0.4)
+
+        # 폴백: 전일 거래량 스파이크
+        volume = analysis.get("volume")
+        if volume and volume.is_volume_spike:
+            return int(weight * 0.5)
+
+        return 0
+
+    def _surge_gap_setup_score(self, analysis: Dict, pm_data) -> int:
+        """갭 설정 점수 (최대 surge_weight_gap점)"""
+        weight = settings.analysis.surge_weight_gap
+        score = 0
+
+        pm_price = pm_data.pre_market_price
+        if not pm_price:
+            return 0
+
+        # PM가격 > BB 상단 = 5점
+        bollinger = analysis.get("bollinger")
+        if bollinger and pm_price > bollinger.upper_band:
+            score += int(weight * 0.5)
+
+        # PM가격 > 52주 90% 위치 = 5점
+        week52 = analysis.get("week52")
+        if week52 and week52.current_position_pct >= 90:
+            score += int(weight * 0.5)
+
+        return min(score, weight)
+
+    def _surge_squeeze_release_score(self, analysis: Dict) -> int:
+        """Squeeze 해제 점수 (최대 surge_weight_squeeze점)"""
+        weight = settings.analysis.surge_weight_squeeze
+        squeeze = analysis.get("squeeze")
+        if not squeeze:
+            return 0
+
+        # Squeeze OFF + momentum increasing = 최대
+        if not squeeze.is_squeeze_on and squeeze.momentum > 0:
+            if squeeze.momentum_direction == "increasing":
+                return weight
+            return int(weight * 0.6)
+
+        return 0
+
+    def _surge_relative_strength_score(self, analysis: Dict) -> int:
+        """상대강도 점수 (최대 surge_weight_relative_strength점)"""
+        weight = settings.analysis.surge_weight_relative_strength
+        rs = analysis.get("relative_strength")
+        if not rs:
+            return 0
+
+        if rs.rs_20d > 5:
+            return weight
+        elif rs.rs_20d > 0:
+            return int(weight * 0.63)
+        return 0
+
+    def _surge_adx_score(self, analysis: Dict) -> int:
+        """ADX 점수 (최대 surge_weight_adx점)"""
+        weight = settings.analysis.surge_weight_adx
+        adx = analysis.get("adx")
+        if not adx:
+            return 0
+
+        if adx.trend_direction == "bullish":
+            if adx.adx >= 30:
+                return weight
+            elif adx.adx >= 25:
+                return int(weight * 0.57)
+        elif adx.trend_strength == "weak":
+            return int(weight * 0.29)
+        return 0
+
+    def _surge_stochastic_score(self, analysis: Dict) -> int:
+        """Stochastic 점수 (최대 surge_weight_stochastic점)"""
+        weight = settings.analysis.surge_weight_stochastic
+        stochastic = analysis.get("stochastic")
+        if not stochastic:
+            return 0
+
+        k = stochastic.k
+        if 30 <= k <= 70:
+            return weight
+        elif k < 30:
+            return int(weight * 0.6)
+        # 과매수(>80) = 0
+        return 0
+
+    def get_opening_surge_recommendations(
+        self,
+        premarket_data: Dict,
+        sentiment_results: Optional[Dict] = None,
+        top_n: Optional[int] = None,
+    ) -> List[Dict]:
+        """
+        개장 급등 추천 종목 선정 (프리마켓 모멘텀 + 뉴스 촉매 + 기술적 돌파)
+
+        Args:
+            premarket_data: {ticker: PreMarketData} 딕셔너리
+            sentiment_results: {ticker: TickerSentiment} 딕셔너리
+            top_n: 추천 종목 수 (기본 settings.analysis.surge_top_n)
+
+        Returns:
+            추천 종목 리스트 (최대 top_n개)
+        """
+        if top_n is None:
+            top_n = settings.analysis.surge_top_n
+
+        sentiment_results = sentiment_results or {}
+        candidates = []
+
+        for ticker, analysis in self.analysis_results.items():
+            pm_data = premarket_data.get(ticker)
+
+            # 하드 필터
+            if not self._surge_passes_hard_filters(ticker, analysis, pm_data):
+                continue
+
+            # 감성 데이터
+            sentiment = sentiment_results.get(ticker)
+
+            # 8개 점수 계산
+            breakdown = SurgeScoreBreakdown(
+                pm_momentum_score=self._surge_pm_momentum_score(pm_data),
+                news_catalyst_score=self._surge_news_catalyst_score(sentiment),
+                volume_surge_score=self._surge_volume_score(analysis, pm_data),
+                gap_setup_score=self._surge_gap_setup_score(analysis, pm_data),
+                squeeze_release_score=self._surge_squeeze_release_score(analysis),
+                relative_strength_score=self._surge_relative_strength_score(analysis),
+                adx_score=self._surge_adx_score(analysis),
+                stochastic_score=self._surge_stochastic_score(analysis),
+            )
+
+            total = breakdown.total
+            if total < settings.analysis.surge_min_score:
+                continue
+
+            candidates.append((ticker, total, breakdown, analysis, pm_data, sentiment))
+
+        # 점수 내림차순
+        candidates.sort(key=lambda x: x[1], reverse=True)
+
+        results = []
+        for ticker, score, breakdown, analysis, pm_data, sentiment in candidates[:top_n]:
+            rsi = analysis.get("rsi")
+            adx = analysis.get("adx")
+            volume = analysis.get("volume")
+            rs = analysis.get("relative_strength")
+            squeeze = analysis.get("squeeze")
+            stochastic = analysis.get("stochastic")
+            close = analysis.get("close", 0)
+            change_pct = analysis.get("change_pct", 0)
+
+            pm_price = pm_data.pre_market_price
+            pm_change_pct = pm_data.pre_market_change_pct
+            atr = analysis.get("atr")
+
+            # ATR 기반 동적 목표가/손절가
+            if atr and atr.atr > 0:
+                target_price = round(pm_price + atr.atr * settings.analysis.surge_atr_target_multiplier, 2)
+                stop_loss = round(pm_price - atr.atr * settings.analysis.surge_atr_stop_multiplier, 2)
+            else:
+                # ATR 없을 때 폴백: PM 변동폭 기반 추정
+                fallback_atr = pm_price * 0.02  # 2% 추정 ATR
+                target_price = round(pm_price + fallback_atr, 2)
+                stop_loss = round(pm_price - fallback_atr * 0.5, 2)
+
+            target_return = round(((target_price - pm_price) / pm_price) * 100, 2) if pm_price else 0
+            risk_reward_ratio = round((target_price - pm_price) / (pm_price - stop_loss), 2) if pm_price > stop_loss else 0
+
+            # 추천 근거 수집
+            reasons = []
+            warning_factors = []
+
+            reasons.append(f"프리마켓 +{pm_change_pct:.2f}% 강세")
+
+            if sentiment:
+                label = sentiment.label if hasattr(sentiment, 'label') else sentiment.get("label", "")
+                if label in ("매우 긍정", "긍정"):
+                    reasons.append(f"뉴스 감성 {label}")
+
+            if squeeze and not squeeze.is_squeeze_on and squeeze.momentum > 0:
+                reasons.append("Squeeze 해제 — 돌파 진행")
+            elif squeeze and squeeze.is_squeeze_on and squeeze.momentum > 0:
+                reasons.append(f"Squeeze ON {squeeze.squeeze_count}일 — 돌파 임박")
+
+            if rs and rs.rs_20d > 0:
+                reasons.append(f"SPY 대비 +{rs.rs_20d:.1f}% 아웃퍼폼")
+
+            if adx and adx.trend_direction == "bullish":
+                reasons.append(f"ADX {adx.adx:.1f} 상승 추세")
+
+            if volume and volume.is_volume_spike:
+                reasons.append(f"전일 거래량 급증 ({volume.volume_ratio:.1f}x)")
+
+            reasons = reasons[:5]
+
+            # Warning factors
+            if rsi and rsi.value > 70:
+                warning_factors.append(f"RSI {rsi.value:.1f} 과매수 주의")
+            if adx and adx.trend_direction == "bearish":
+                warning_factors.append("하락 추세 지속 중")
+            if stochastic and stochastic.is_overbought:
+                warning_factors.append(f"Stochastic 과매수 (%K: {stochastic.k:.1f})")
+
+            # 감성 dict 빌드
+            sentiment_dict = None
+            if sentiment:
+                if hasattr(sentiment, 'label'):
+                    sentiment_dict = {
+                        "label": sentiment.label,
+                        "gauge_score": sentiment.gauge_score,
+                        "avg_compound": sentiment.avg_compound,
+                        "positive_count": sentiment.positive_count,
+                        "negative_count": sentiment.negative_count,
+                        "neutral_count": sentiment.neutral_count,
+                        "total_count": sentiment.total_count,
+                    }
+                elif isinstance(sentiment, dict):
+                    sentiment_dict = sentiment
+
+            rec = {
+                "ticker": ticker,
+                "close": close,
+                "change_pct": change_pct,
+                "pm_price": pm_price,
+                "pm_change_pct": pm_change_pct,
+                "score": score,
+                "reasons": reasons,
+                "warning_factors": warning_factors,
+                "target_price": target_price,
+                "target_return": target_return,
+                "stop_loss": stop_loss,
+                "risk_reward_ratio": risk_reward_ratio,
+                "atr_pct": round(atr.atr / pm_price * 100, 2) if atr and pm_price else None,
+                "holding_period": "30분~1시간",
+                "recommendation_method": "Opening Surge",
+                "rsi": round(rsi.value, 1) if rsi else None,
+                "adx": round(adx.adx, 1) if adx else None,
+                "volume_ratio": round(volume.volume_ratio, 2) if volume else None,
+                "squeeze_status": "ON" if squeeze and squeeze.is_squeeze_on else ("OFF" if squeeze else None),
+                "squeeze_momentum": squeeze.momentum_direction if squeeze else None,
+                "stochastic_k": round(stochastic.k, 1) if stochastic else None,
+                "relative_strength_20d": round(rs.rs_20d, 1) if rs else None,
+                "score_breakdown": {
+                    "pm_momentum": breakdown.pm_momentum_score,
+                    "news_catalyst": breakdown.news_catalyst_score,
+                    "volume_surge": breakdown.volume_surge_score,
+                    "gap_setup": breakdown.gap_setup_score,
+                    "squeeze_release": breakdown.squeeze_release_score,
+                    "relative_strength": breakdown.relative_strength_score,
+                    "adx": breakdown.adx_score,
+                    "stochastic": breakdown.stochastic_score,
+                },
+                "sentiment": sentiment_dict,
+            }
+
+            logger.info(f"   [Opening Surge] 추천: {ticker} (점수: {score}, PM: +{pm_change_pct:.2f}%)")
             results.append(rec)
 
         return results
