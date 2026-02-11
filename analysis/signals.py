@@ -251,56 +251,72 @@ class SignalDetector:
         reasons = []
         holding_period = ""
 
+        # 칼만 예측가 기준 10% 이상 상승 여력 체크 헬퍼
+        def _find_kalman_valid(signal_list):
+            for candidate in signal_list:
+                analysis = self.analysis_results.get(candidate.ticker, {})
+                kalman = analysis.get("kalman")
+                close = analysis.get("close", 0)
+                if kalman and close:
+                    kalman_return_pct = ((kalman.predicted_price - close) / close) * 100
+                    if kalman_return_pct >= 10:
+                        return candidate
+            return None
+
         # 1순위: 복합 신호 종목
         if signals["combined"]:
-            top = signals["combined"][0]
-            recommendation = top
+            top = _find_kalman_valid(signals["combined"])
+            if top:
+                recommendation = top
 
-            if top.details.get("rsi"):
-                reasons.append(f"RSI {top.details['rsi']:.1f} (과매도 구간)")
-            if top.details.get("macd_cross"):
-                reasons.append("MACD 골든크로스 발생")
-            if top.details.get("z_score"):
-                reasons.append(f"볼린저밴드 하단 근접 (Z-score: {top.details['z_score']:.2f})")
+                if top.details.get("rsi"):
+                    reasons.append(f"RSI {top.details['rsi']:.1f} (과매도 구간)")
+                if top.details.get("macd_cross"):
+                    reasons.append("MACD 골든크로스 발생")
+                if top.details.get("z_score"):
+                    reasons.append(f"볼린저밴드 하단 근접 (Z-score: {top.details['z_score']:.2f})")
 
-            holding_period = "2-4주 (복수 신호로 신뢰도 높음)"
-            source = "복합 기술적 분석 신호"
+                holding_period = "2-4주 (복수 신호로 신뢰도 높음)"
+                source = "복합 기술적 분석 신호"
 
         # 2순위: RSI 과매도 중 가장 낮은 종목
-        elif signals["rsi_oversold"]:
-            top = signals["rsi_oversold"][0]
-            recommendation = top
+        if not recommendation and signals["rsi_oversold"]:
+            top = _find_kalman_valid(signals["rsi_oversold"])
+            if top:
+                recommendation = top
 
-            reasons.append(f"RSI {top.details['rsi']:.1f}로 극심한 과매도 상태")
-            reasons.append("단기 반등 가능성 높음")
+                reasons.append(f"RSI {top.details['rsi']:.1f}로 극심한 과매도 상태")
+                reasons.append("단기 반등 가능성 높음")
 
-            if top.details['rsi'] < 20:
-                holding_period = "1-2주 (극단적 과매도, 빠른 반등 기대)"
-            else:
-                holding_period = "2-3주 (과매도 회복 대기)"
-            source = "RSI 과매도 신호"
+                if top.details['rsi'] < 20:
+                    holding_period = "1-2주 (극단적 과매도, 빠른 반등 기대)"
+                else:
+                    holding_period = "2-3주 (과매도 회복 대기)"
+                source = "RSI 과매도 신호"
 
         # 3순위: MACD 골든크로스
-        elif signals["macd_golden_cross"]:
-            top = signals["macd_golden_cross"][0]
-            recommendation = top
+        if not recommendation and signals["macd_golden_cross"]:
+            top = _find_kalman_valid(signals["macd_golden_cross"])
+            if top:
+                recommendation = top
 
-            reasons.append("MACD 골든크로스 발생")
-            reasons.append(f"히스토그램: {top.details['histogram']:.4f}")
+                reasons.append("MACD 골든크로스 발생")
+                reasons.append(f"히스토그램: {top.details['histogram']:.4f}")
 
-            holding_period = "3-4주 (추세 전환 확인 필요)"
-            source = "MACD 골든크로스 신호"
+                holding_period = "3-4주 (추세 전환 확인 필요)"
+                source = "MACD 골든크로스 신호"
 
         # 4순위: 1시그마 근접
-        elif signals["sigma_reversion"]:
-            top = signals["sigma_reversion"][0]
-            recommendation = top
+        if not recommendation and signals["sigma_reversion"]:
+            top = _find_kalman_valid(signals["sigma_reversion"])
+            if top:
+                recommendation = top
 
-            reasons.append(f"볼린저밴드 하단 근접 (Z-score: {top.details['z_score']:.2f})")
-            reasons.append(f"20일 이동평균 대비 {top.details['distance_to_sma_pct']}% 상승 여력")
+                reasons.append(f"볼린저밴드 하단 근접 (Z-score: {top.details['z_score']:.2f})")
+                reasons.append(f"20일 이동평균 대비 {top.details['distance_to_sma_pct']}% 상승 여력")
 
-            holding_period = "1-2주 (평균 회귀 전략)"
-            source = "볼린저밴드 평균회귀 신호"
+                holding_period = "1-2주 (평균 회귀 전략)"
+                source = "볼린저밴드 평균회귀 신호"
 
         if recommendation:
             # 매도 목표가 계산 (20일 SMA 기준)
@@ -622,11 +638,21 @@ class SignalDetector:
         Returns:
             EnhancedRecommendation or None
         """
-        candidates = []
+        # 1단계: 칼만 상승 여력 + 하드필터 통과한 전체 후보 수집 (점수 무관)
+        all_candidates = []
 
         for ticker, analysis in self.analysis_results.items():
             # 기본 지표가 없으면 스킵
             if not analysis.get("rsi") and not analysis.get("bollinger"):
+                continue
+
+            # 칼만 예측가 기준 10% 이상 상승 여력 필터
+            kalman = analysis.get("kalman")
+            close = analysis.get("close", 0)
+            if not kalman or not close:
+                continue
+            kalman_return_pct = ((kalman.predicted_price - close) / close) * 100
+            if kalman_return_pct < 10:
                 continue
 
             # 점수 계산
@@ -645,23 +671,39 @@ class SignalDetector:
 
             total_score = score_breakdown.total
 
-            # 최소 점수 미달 시 스킵
-            if total_score < settings.analysis.min_recommendation_score:
-                continue
-
             # 필터링 조건 체크
             should_filter, filter_reason = self._should_filter_out(analysis, score_breakdown)
             if should_filter:
                 logger.debug(f"{ticker} 필터링됨: {filter_reason}")
                 continue
 
-            candidates.append((ticker, total_score, score_breakdown, analysis))
+            all_candidates.append((ticker, total_score, score_breakdown, analysis))
 
-        if not candidates:
+        if not all_candidates:
             return None
 
-        # 점수 기준 정렬
-        candidates.sort(key=lambda x: x[1], reverse=True)
+        # 2단계: 점수 기준 점진적 하향
+        all_candidates.sort(key=lambda x: x[1], reverse=True)
+        original_min = settings.analysis.min_recommendation_score
+        score_step = 5
+        score_floor = 10
+
+        candidates = [c for c in all_candidates if c[1] >= original_min]
+
+        if not candidates:
+            current_min = original_min - score_step
+            while current_min >= score_floor:
+                candidates = [c for c in all_candidates if c[1] >= current_min]
+                if candidates:
+                    logger.info(f"칼만 상승 여력 종목 확보를 위해 최소 점수 {original_min} → {current_min}로 하향 조정")
+                    break
+                current_min -= score_step
+
+            if not candidates:
+                # 하한선 미만이라도 칼만 상승 여력 있는 최고 점수 종목 선정
+                candidates = [all_candidates[0]]
+                logger.info(f"최소 점수 하한({score_floor}) 미달, 칼만 상승 여력 최고 점수 종목 선정: {all_candidates[0][0]} (점수: {all_candidates[0][1]})")
+
         best_ticker, best_score, best_breakdown, best_analysis = candidates[0]
 
         # 신뢰도 결정

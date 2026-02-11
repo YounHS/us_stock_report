@@ -90,15 +90,18 @@ python main.py --test-slack # 테스트 Slack 메시지 발송
 - 칼만 필터 실패 시 Bollinger SMA 단독 사용 (기존 로직 폴백)
 
 **Enhanced 방식** (`get_enhanced_recommendation()`):
+- **칼만 상승 여력 하드 필터**: 칼만 예측가 기준 종가 대비 10% 이상 상승 여력 있는 종목만 후보 (칼만 데이터 없는 종목도 제외)
+- **점수 기준 점진적 하향**: 1차 시도 `min_recommendation_score`(기본 35) → 후보 없으면 5점씩 하향 → 하한 10점 → 하한 미달 시에도 칼만 상승 여력 최고 점수 종목 선정
 - 가중치 점수 시스템으로 종목 순위 산정
-- 최소 점수(`min_recommendation_score`, 기본 35) 이상만 추천 대상
 - 70점 이상: High 신뢰도, 그 외: Medium 신뢰도
 - ATR 기반 손절가, 칼만 블렌딩 목표가 계산
 - R:R 필터: 양수이면서 2:1 미만일 때만 필터링. 음수 R:R(목표가 < 현재가)은 허용하되 warning으로 경고
 
 **Legacy 방식** (`get_top_recommendation()`):
 - Enhanced 실패 시 폴백으로 사용
+- **칼만 상승 여력 하드 필터**: 각 신호 그룹 내 종목을 순회하며 칼만 예측가 기준 종가 대비 10% 이상 상승 여력인 첫 종목 선정
 - 우선순위: 복합 신호 → RSI 과매도 → MACD 골든크로스 → 1시그마 근접
+- 모든 그룹에서 칼만 유효 후보 없으면 `None` 반환
 - 매도 목표가는 칼만 블렌딩 목표가 기준 (폴백: 20일 SMA)
 
 **칼만 필터 방식** (`get_kalman_recommendation()`):
