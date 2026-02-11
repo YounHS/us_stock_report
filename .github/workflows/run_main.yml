@@ -43,3 +43,12 @@ jobs:
         SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
         SLACK_CHANNEL: ${{ secrets.SLACK_CHANNEL }}
       run: python main.py
+
+    - name: Upload recommendations state
+      if: success()
+      uses: actions/upload-artifact@v4
+      with:
+        name: recommendations-state
+        path: last_recommendations.json
+        retention-days: 2
+        if-no-files-found: ignore

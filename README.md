@@ -1,6 +1,6 @@
 # US Stock Report
 
-S&P 500 기반 미국 주식 시장 일일 분석 리포트를 자동 생성하여 Slack으로 발송하는 Python 시스템입니다.
+S&P 500 기반 미국 주식 시장 일일 분석 리포트를 자동 생성하여 Slack으로 발송하는 Python 시스템입니다. 추가로 장 시작 전 프리마켓 리포트도 제공합니다.
 
 ## 주요 기능
 
@@ -13,18 +13,22 @@ S&P 500 기반 미국 주식 시장 일일 분석 리포트를 자동 생성하�
 - **섹터별 트렌드**: 11개 GICS 섹터 분석, Top 10 상승/하락 종목
 - **뉴스 감성 분석**: 추천 종목별 뉴스 헤드라인 VADER 감성 분석 (긍정/부정/중립 게이지 시각화)
 - **뉴스 및 캘린더**: 핫 종목 뉴스, 경제 캘린더, 실적 발표 일정
+- **프리마켓 리포트**: 장 시작 전 시장 지수/섹터 ETF 프리마켓 가격, 주요 변동 종목, 전일 추천 종목 현황 분석
 
 ## 프로젝트 구조
 
 ```
 us_stock_report/
-├── main.py                      # 진입점
+├── main.py                      # 일일 리포트 진입점
+├── main_premarket.py            # 프리마켓 리포트 진입점
 ├── config/
 │   ├── settings.py              # Pydantic 기반 환경변수 관리
 │   └── sp500_tickers.py         # S&P 500 종목 스크래핑
 ├── data/
 │   ├── fetcher.py               # yfinance 주가 데이터 수집
-│   └── calendar.py              # 경제/실적 캘린더
+│   ├── calendar.py              # 경제/실적 캘린더
+│   ├── premarket.py             # 프리마켓 가격 수집
+│   └── premarket_tickers.py     # 프리마켓 대상 종목 관리
 ├── analysis/
 │   ├── technical.py             # 기술적 분석 (RSI, MACD, BB 등)
 │   ├── signals.py               # 매수 신호 감지 및 추천
@@ -33,15 +37,18 @@ us_stock_report/
 ├── news/
 │   └── fetcher.py               # 뉴스 수집
 ├── report/
-│   ├── generator.py             # Jinja2 리포트 생성
+│   ├── generator.py             # 일일 리포트 생성 (Jinja2)
+│   ├── premarket_generator.py   # 프리마켓 리포트 생성 (Jinja2)
 │   └── templates/
-│       └── daily_report.html    # HTML 리포트 템플릿
+│       ├── daily_report.html    # 일일 리포트 HTML 템플릿
+│       └── premarket_report.html # 프리마켓 리포트 HTML 템플릿
 ├── notification/
 │   └── slack_sender.py          # Slack 발송 (요약 메시지 + PDF 리포트)
 ├── docs/
 │   └── index.html               # 기술적 지표 설명 페이지 (GitHub Pages)
 ├── .github/workflows/
-│   └── run_main.yml             # GitHub Actions 스케줄링
+│   ├── run_main.yml             # 일일 리포트 GitHub Actions 스케줄링
+│   └── run_premarket.yml        # 프리마켓 리포트 GitHub Actions 스케줄링
 ├── requirements.txt
 └── .env                         # 환경변수 (git 미추적)
 ```
@@ -96,7 +103,7 @@ LONGTERM_PREDICTION_DAYS=40             # N-step 예측 거래일 수 (약 2개�
 ## 실행
 
 ```bash
-# 전체 실행 (리포트 생성 + Slack 발송)
+# 일일 리포트 (리포트 생성 + Slack 발송)
 python main.py
 
 # 발송 없이 리포트만 생성
@@ -104,14 +111,26 @@ python main.py --dry-run
 
 # 테스트 Slack 메시지 발송
 python main.py --test-slack
+
+# 프리마켓 리포트 (장 시작 전)
+python main_premarket.py
+
+# 발송 없이 프리마켓 리포트만 생성
+python main_premarket.py --dry-run
 ```
 
 ## 자동 스케줄링
 
 ### GitHub Actions (권장)
 
-`.github/workflows/run_main.yml`로 월-금 KST 06:55에 자동 실행됩니다.
-워크플로우에서 한글 폰트(`fonts-noto-cjk`)를 자동 설치합니다 (Chrome은 `ubuntu-latest`에 기본 포함).
+두 개의 워크플로우가 월-금 자동 실행됩니다:
+
+| 워크플로우 | 파일 | 실행 시간 (KST) | 설명 |
+|---|---|---|---|
+| 일일 리포트 | `run_main.yml` | 06:55 (UTC 21:55) | 시장 분석 + 추천 종목 |
+| 프리마켓 리포트 | `run_premarket.yml` | 21:00 (UTC 12:00) | 장 시작 전 프리마켓 분석 |
+
+일일 리포트 워크플로우에서 `actions/upload-artifact@v4`로 추천 종목 상태(`last_recommendations.json`)를 저장하고, 프리마켓 워크플로우에서 `actions/download-artifact@v4`로 다운로드하여 전일 추천 종목 현황을 표시합니다.
 
 GitHub Repository에 Secrets를 등록해야 합니다:
 
@@ -125,11 +144,16 @@ GitHub Repository에 Secrets를 등록해야 합니다:
 ### cron (로컬 서버)
 
 ```bash
-# KST 07:00 = UTC 22:00, 월-금
+# 일일 리포트: KST 07:00 = UTC 22:00, 월-금
 0 22 * * 1-5 /path/to/venv/bin/python /path/to/main.py
+
+# 프리마켓 리포트: KST 21:00 = UTC 12:00, 월-금
+0 12 * * 1-5 /path/to/venv/bin/python /path/to/main_premarket.py
 ```
 
 ## 리포트 구성
+
+### 일일 리포트
 
 1. 시장 요약 (SPY, QQQ, DIA, IWM)
 2. 주요 뉴스 (핫 종목/섹터 하이라이트)
@@ -141,6 +165,18 @@ GitHub Repository에 Secrets를 등록해야 합니다:
 8. 오늘의 추천 종목 — 단기 평균 회귀 전략 (보유 기간 1-4주, 뉴스 감성 게이지 포함)
 9. 칼만 필터 추천 종목 — 칼만 예측가 상승 여력 기반 추천 (보유 기간 2-4주, 뉴스 감성 게이지 포함)
 10. 장기 투자 추천 Top 3 — 추세 추종 전략 (보유 기간 1-3개월, 축소 감성 게이지)
+
+### 프리마켓 리포트
+
+1. 시장 지수 프리마켓 (SPY/QQQ/DIA/IWM — 전일종가, PM가격, PM변동%)
+2. 섹터 ETF 프리마켓 (11개 섹터 ETF 히트맵, 변동% 색상 강도)
+3. 프리마켓 주요 변동 (±1% 이상 상승/하락 종목)
+4. 전일 추천 종목 현황 (PM변동 + RSI/MACD/칼만예측가 오버레이)
+5. 경제 캘린더
+6. 실적 발표 캘린더
+7. 최신 뉴스
+
+프리마켓 대상 종목은 시장 ETF + 11개 섹터 ETF + 전일 추천 종목 + 당일 실적 발표 종목으로 구성됩니다.
 
 ### 추천 전략 비교
 

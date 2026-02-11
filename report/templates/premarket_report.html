@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>미국 주식 프리마켓 리포트</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: #fff;
+            border-radius: 8px;
+            padding: 30px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            border-bottom: 2px solid #ea580c;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+            background: linear-gradient(135deg, #ea580c 0%, #f59e0b 100%);
+            margin: -30px -30px 30px -30px;
+            padding: 30px;
+            border-radius: 8px 8px 0 0;
+            color: white;
+        }
+        .header h1 {
+            color: white;
+            margin: 0 0 5px 0;
+            font-size: 24px;
+        }
+        .header .subtitle {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        .header .date {
+            font-size: 13px;
+            opacity: 0.8;
+            margin-top: 5px;
+        }
+        .section {
+            margin-bottom: 30px;
+        }
+        .section h2 {
+            color: #1f2937;
+            font-size: 18px;
+            border-left: 4px solid #ea580c;
+            padding-left: 12px;
+            margin-bottom: 15px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+        th, td {
+            padding: 10px 8px;
+            text-align: left;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        th {
+            background-color: #f9fafb;
+            font-weight: 600;
+            color: #374151;
+        }
+        tr:hover {
+            background-color: #f9fafb;
+        }
+        .positive { color: #16a34a; font-weight: 600; }
+        .negative { color: #dc2626; font-weight: 600; }
+        .neutral { color: #6b7280; }
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .badge-gainer { background-color: #dcfce7; color: #166534; }
+        .badge-loser { background-color: #fee2e2; color: #991b1b; }
+        .badge-neutral { background-color: #f3f4f6; color: #4b5563; }
+
+        /* 시장 지수 프리마켓 카드 */
+        .market-pm-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-top: 15px;
+        }
+        .market-pm-card {
+            background: #f9fafb;
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+            border: 1px solid #e5e7eb;
+        }
+        .market-pm-card .ticker {
+            font-size: 16px;
+            font-weight: 700;
+            color: #1f2937;
+            margin-bottom: 8px;
+        }
+        .market-pm-card .prev-close {
+            font-size: 12px;
+            color: #6b7280;
+            margin-bottom: 4px;
+        }
+        .market-pm-card .pm-price {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+        .market-pm-card .pm-change {
+            font-size: 14px;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 12px;
+            display: inline-block;
+        }
+        .market-pm-card .pm-change.up {
+            background: #dcfce7;
+            color: #166534;
+        }
+        .market-pm-card .pm-change.down {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        .market-pm-card .pm-change.flat {
+            background: #f3f4f6;
+            color: #6b7280;
+        }
+        .market-pm-card .no-pm {
+            font-size: 13px;
+            color: #9ca3af;
+            font-style: italic;
+        }
+
+        /* 섹터 히트맵 */
+        .sector-heatmap {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            margin-top: 15px;
+        }
+        .sector-cell {
+            border-radius: 6px;
+            padding: 10px 8px;
+            text-align: center;
+            color: white;
+            font-weight: 600;
+        }
+        .sector-cell .name {
+            font-size: 11px;
+            opacity: 0.9;
+            margin-bottom: 4px;
+        }
+        .sector-cell .etf {
+            font-size: 13px;
+            font-weight: 700;
+        }
+        .sector-cell .change {
+            font-size: 14px;
+            margin-top: 4px;
+        }
+        .sector-cell .no-data {
+            font-size: 11px;
+            opacity: 0.7;
+        }
+
+        /* 추천 종목 현황 카드 */
+        .rec-status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 12px;
+            margin-top: 15px;
+        }
+        .rec-status-card {
+            background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+            border-radius: 10px;
+            padding: 18px;
+            color: white;
+        }
+        .rec-status-card .ticker-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .rec-status-card .ticker-symbol {
+            font-size: 22px;
+            font-weight: 800;
+        }
+        .rec-status-card .method-tag {
+            font-size: 10px;
+            padding: 2px 8px;
+            border-radius: 10px;
+            background: rgba(255,255,255,0.2);
+        }
+        .rec-status-card .pm-info {
+            background: rgba(255,255,255,0.15);
+            border-radius: 6px;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+        .rec-status-card .pm-info .label {
+            font-size: 10px;
+            opacity: 0.8;
+        }
+        .rec-status-card .pm-info .value {
+            font-size: 18px;
+            font-weight: 700;
+        }
+        .rec-status-card .indicators {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 6px;
+        }
+        .rec-status-card .ind-item {
+            background: rgba(255,255,255,0.1);
+            border-radius: 4px;
+            padding: 6px;
+            text-align: center;
+        }
+        .rec-status-card .ind-item .label {
+            font-size: 9px;
+            opacity: 0.7;
+        }
+        .rec-status-card .ind-item .value {
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        /* 감성 배지 */
+        .sentiment-badge {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 8px;
+            font-size: 10px;
+            font-weight: 600;
+        }
+        .sentiment-very-positive { background: #166534; color: white; }
+        .sentiment-positive { background: #dcfce7; color: #166534; }
+        .sentiment-neutral { background: #f3f4f6; color: #6b7280; }
+        .sentiment-negative { background: #fee2e2; color: #991b1b; }
+        .sentiment-very-negative { background: #991b1b; color: white; }
+
+        /* 뉴스 */
+        .news-item {
+            padding: 12px 0;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .news-item:last-child { border-bottom: none; }
+        .news-item a {
+            color: #2563eb;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        .news-item a:hover { text-decoration: underline; }
+        .news-meta {
+            color: #6b7280;
+            font-size: 12px;
+            margin-top: 4px;
+        }
+        .news-tag {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 11px;
+            margin-right: 6px;
+        }
+
+        /* 캘린더 (기존 스타일 재활용) */
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 4px;
+            margin-top: 15px;
+        }
+        .calendar-day {
+            background: #f9fafb;
+            border-radius: 6px;
+            padding: 8px;
+            min-height: 80px;
+            font-size: 12px;
+        }
+        .calendar-day.today {
+            background: #dbeafe;
+            border: 2px solid #2563eb;
+        }
+        .calendar-day.weekend {
+            background: #f3f4f6;
+            opacity: 0.7;
+        }
+        .calendar-day-header {
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 6px;
+            font-size: 11px;
+        }
+        .calendar-event {
+            background: #fef3c7;
+            color: #92400e;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-size: 10px;
+            margin-bottom: 3px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .calendar-event.high {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        .calendar-earnings {
+            background: #dbeafe;
+            color: #1e40af;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-size: 10px;
+            margin-bottom: 2px;
+        }
+        .calendar-header {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 4px;
+            margin-bottom: 4px;
+        }
+        .calendar-header-day {
+            text-align: center;
+            font-weight: 600;
+            font-size: 11px;
+            color: #6b7280;
+            padding: 4px;
+        }
+
+        .empty-message {
+            color: #6b7280;
+            font-style: italic;
+            padding: 20px;
+            text-align: center;
+        }
+        .footer {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e5e7eb;
+            text-align: center;
+            font-size: 12px;
+            color: #9ca3af;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 1. 헤더 -->
+        <div class="header">
+            <h1>미국 주식 프리마켓 리포트</h1>
+            <div class="subtitle">Pre-Market Report | 장 시작 전 브리핑</div>
+            <div class="date">{{ report_date }} | 생성: {{ generated_at }} KST</div>
+        </div>
+
+        <!-- 2. 시장 지수 프리마켓 -->
+        <div class="section">
+            <h2>시장 지수 프리마켓</h2>
+            {% if market_premarket %}
+            <div class="market-pm-grid">
+                {% for ticker, pm in market_premarket.items() %}
+                <div class="market-pm-card">
+                    <div class="ticker">{{ ticker }}</div>
+                    {% if pm.regular_previous_close is not none %}
+                    <div class="prev-close">전일종가 ${{ pm.regular_previous_close }}</div>
+                    {% endif %}
+                    {% if pm.has_premarket %}
+                    <div class="pm-price">${{ pm.pre_market_price }}</div>
+                    <div class="pm-change {{ 'up' if pm.pre_market_change_pct > 0 else 'down' if pm.pre_market_change_pct < 0 else 'flat' }}">
+                        {{ '+' if pm.pre_market_change_pct > 0 else '' }}{{ pm.pre_market_change_pct }}%
+                    </div>
+                    {% else %}
+                    <div class="no-pm">프리마켓 데이터 없음</div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="empty-message">시장 지수 데이터를 가져올 수 없습니다.</div>
+            {% endif %}
+        </div>
+
+        <!-- 3. 섹터 ETF 프리마켓 히트맵 -->
+        <div class="section">
+            <h2>섹터 ETF 프리마켓</h2>
+            {% if sector_premarket %}
+            <div class="sector-heatmap">
+                {% for ticker, pm in sector_premarket.items() %}
+                {% if pm.has_premarket and pm.pre_market_change_pct is not none %}
+                {% set pct = pm.pre_market_change_pct %}
+                {% if pct >= 2.0 %}
+                    {% set bg = '#166534' %}
+                {% elif pct >= 1.0 %}
+                    {% set bg = '#16a34a' %}
+                {% elif pct >= 0.3 %}
+                    {% set bg = '#4ade80' %}
+                {% elif pct > -0.3 %}
+                    {% set bg = '#6b7280' %}
+                {% elif pct > -1.0 %}
+                    {% set bg = '#f87171' %}
+                {% elif pct > -2.0 %}
+                    {% set bg = '#dc2626' %}
+                {% else %}
+                    {% set bg = '#991b1b' %}
+                {% endif %}
+                <div class="sector-cell" style="background: {{ bg }};">
+                    <div class="etf">{{ ticker }}</div>
+                    <div class="change">{{ '+' if pct > 0 else '' }}{{ pct }}%</div>
+                </div>
+                {% else %}
+                <div class="sector-cell" style="background: #9ca3af;">
+                    <div class="etf">{{ ticker }}</div>
+                    <div class="no-data">N/A</div>
+                </div>
+                {% endif %}
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="empty-message">섹터 ETF 데이터를 가져올 수 없습니다.</div>
+            {% endif %}
+        </div>
+
+        <!-- 4. 프리마켓 주요 변동 -->
+        <div class="section">
+            <h2>프리마켓 주요 변동 종목</h2>
+            {% if significant_movers and (significant_movers.gainers or significant_movers.losers) %}
+            <table>
+                <thead>
+                    <tr>
+                        <th colspan="3" style="text-align: center; background-color: #dcfce7;">상승 (PM +1% 이상)</th>
+                        <th colspan="3" style="text-align: center; background-color: #fee2e2;">하락 (PM -1% 이상)</th>
+                    </tr>
+                    <tr>
+                        <th>티커</th>
+                        <th>PM가격</th>
+                        <th>PM변동</th>
+                        <th>티커</th>
+                        <th>PM가격</th>
+                        <th>PM변동</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% set max_rows = [significant_movers.gainers|length, significant_movers.losers|length] | max %}
+                    {% for i in range(max_rows) %}
+                    {% if i < 10 %}
+                    <tr>
+                        {% if i < significant_movers.gainers|length %}
+                        {% set g = significant_movers.gainers[i] %}
+                        <td><strong>{{ g.ticker }}</strong></td>
+                        <td>${{ g.pre_market_price }}</td>
+                        <td class="positive">+{{ g.pre_market_change_pct }}%</td>
+                        {% else %}
+                        <td colspan="3"></td>
+                        {% endif %}
+                        {% if i < significant_movers.losers|length %}
+                        {% set l = significant_movers.losers[i] %}
+                        <td><strong>{{ l.ticker }}</strong></td>
+                        <td>${{ l.pre_market_price }}</td>
+                        <td class="negative">{{ l.pre_market_change_pct }}%</td>
+                        {% else %}
+                        <td colspan="3"></td>
+                        {% endif %}
+                    </tr>
+                    {% endif %}
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="empty-message">프리마켓에서 1% 이상 변동한 종목이 없습니다.</div>
+            {% endif %}
+        </div>
+
+        <!-- 5. 전일 추천 종목 현황 -->
+        {% if previous_recommendations %}
+        <div class="section">
+            <h2>전일 추천 종목 프리마켓 현황</h2>
+            <div class="rec-status-grid">
+                {% for rec in previous_recommendations %}
+                <div class="rec-status-card">
+                    <div class="ticker-row">
+                        <span class="ticker-symbol">{{ rec.ticker }}</span>
+                        {% if rec.method %}
+                        <span class="method-tag">{{ rec.method }}</span>
+                        {% endif %}
+                    </div>
+                    <div class="pm-info">
+                        {% if rec.has_premarket %}
+                        <div class="label">프리마켓</div>
+                        <div class="value">
+                            ${{ rec.pm_price }}
+                            <span style="font-size: 14px; {{ 'color: #4ade80;' if rec.pm_change_pct > 0 else 'color: #f87171;' if rec.pm_change_pct < 0 else '' }}">
+                                ({{ '+' if rec.pm_change_pct > 0 else '' }}{{ rec.pm_change_pct }}%)
+                            </span>
+                        </div>
+                        {% else %}
+                        <div class="label">전일 종가</div>
+                        <div class="value">${{ rec.prev_close or 'N/A' }}</div>
+                        <div style="font-size: 11px; opacity: 0.7;">프리마켓 데이터 없음</div>
+                        {% endif %}
+                    </div>
+                    {% if rec.analysis %}
+                    <div class="indicators">
+                        {% if rec.analysis.rsi is not none %}
+                        <div class="ind-item">
+                            <div class="label">RSI</div>
+                            <div class="value">{{ rec.analysis.rsi }}</div>
+                        </div>
+                        {% endif %}
+                        {% if rec.analysis.macd_signal %}
+                        <div class="ind-item">
+                            <div class="label">MACD</div>
+                            <div class="value">{{ rec.analysis.macd_signal }}</div>
+                        </div>
+                        {% endif %}
+                        {% if rec.analysis.kalman_price is not none %}
+                        <div class="ind-item">
+                            <div class="label">칼만예측</div>
+                            <div class="value">${{ rec.analysis.kalman_price }}</div>
+                        </div>
+                        {% endif %}
+                        {% if rec.analysis.adx is not none %}
+                        <div class="ind-item">
+                            <div class="label">ADX</div>
+                            <div class="value">{{ rec.analysis.adx }}</div>
+                        </div>
+                        {% endif %}
+                        {% if rec.analysis.bollinger_z is not none %}
+                        <div class="ind-item">
+                            <div class="label">BB Z</div>
+                            <div class="value">{{ rec.analysis.bollinger_z }}</div>
+                        </div>
+                        {% endif %}
+                        {% if rec.analysis.volume_ratio is not none %}
+                        <div class="ind-item">
+                            <div class="label">거래량</div>
+                            <div class="value">{{ rec.analysis.volume_ratio }}x</div>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                    {% if rec.sentiment %}
+                    <div style="margin-top: 8px; text-align: center;">
+                        <span class="sentiment-badge sentiment-{{ 'very-positive' if rec.sentiment.label == '매우 긍정' else 'positive' if rec.sentiment.label == '긍정' else 'neutral' if rec.sentiment.label == '중립' else 'negative' if rec.sentiment.label == '부정' else 'very-negative' }}">
+                            {{ rec.sentiment.label }} ({{ rec.sentiment.positive_count }}+ / {{ rec.sentiment.negative_count }}-)
+                        </span>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- 6. 경제 캘린더 -->
+        {% if economic_calendar %}
+        <div class="section">
+            <h2>이번 주 경제 캘린더</h2>
+            <div class="calendar-header">
+                <div class="calendar-header-day">월</div>
+                <div class="calendar-header-day">화</div>
+                <div class="calendar-header-day">수</div>
+                <div class="calendar-header-day">목</div>
+                <div class="calendar-header-day">금</div>
+                <div class="calendar-header-day">토</div>
+                <div class="calendar-header-day">일</div>
+            </div>
+            <div class="calendar-grid">
+                {% for date, day_data in economic_calendar.items() %}
+                <div class="calendar-day {{ 'today' if day_data.is_today else '' }} {{ 'weekend' if day_data.day_name in ['토', '일'] else '' }}">
+                    <div class="calendar-day-header">{{ day_data.date_display }} ({{ day_data.day_name }})</div>
+                    {% for event in day_data.events[:3] %}
+                    <div class="calendar-event {{ event.importance }}">{{ event.event[:20] }}</div>
+                    {% endfor %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- 7. 실적 발표 캘린더 -->
+        {% if earnings_calendar %}
+        <div class="section">
+            <h2>실적 발표 일정 (2주)</h2>
+            <div class="calendar-header">
+                <div class="calendar-header-day">월</div>
+                <div class="calendar-header-day">화</div>
+                <div class="calendar-header-day">수</div>
+                <div class="calendar-header-day">목</div>
+                <div class="calendar-header-day">금</div>
+                <div class="calendar-header-day">토</div>
+                <div class="calendar-header-day">일</div>
+            </div>
+            <div class="calendar-grid">
+                {% for date, day_data in earnings_calendar.items() %}
+                <div class="calendar-day {{ 'today' if day_data.is_today else '' }} {{ 'weekend' if day_data.day_name in ['토', '일'] else '' }}">
+                    <div class="calendar-day-header">{{ day_data.date_display }} ({{ day_data.day_name }})</div>
+                    {% for ticker in day_data.earnings[:4] %}
+                    <div class="calendar-earnings">{{ ticker }}</div>
+                    {% endfor %}
+                    {% if day_data.earnings|length > 4 %}
+                    <div style="font-size: 10px; color: #6b7280;">+{{ day_data.earnings|length - 4 }}개</div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- 8. 최신 뉴스 -->
+        <div class="section">
+            <h2>최신 뉴스</h2>
+            {% if news %}
+                {% if news.market_news %}
+                {% for item in news.market_news[:8] %}
+                <div class="news-item">
+                    <a href="{{ item.link }}" target="_blank">{{ item.title }}</a>
+                    <div class="news-meta">{{ item.publisher }} | {{ item.published }}</div>
+                </div>
+                {% endfor %}
+                {% else %}
+                <div class="empty-message">수집된 뉴스가 없습니다.</div>
+                {% endif %}
+            {% else %}
+            <div class="empty-message">뉴스 데이터를 가져올 수 없습니다.</div>
+            {% endif %}
+        </div>
+
+        <!-- 9. 푸터 -->
+        <div class="footer">
+            <p>본 리포트는 투자 권유가 아닌 정보 제공 목적입니다. 프리마켓 가격은 정규장 시작 시 변동될 수 있습니다.</p>
+            <p>생성 시각: {{ generated_at }} KST</p>
+        </div>
+    </div>
+</body>
+</html>

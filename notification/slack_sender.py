@@ -208,6 +208,149 @@ class SlackSender:
             logger.error(f"Slack 발송 실패: {e}")
             return False
 
+    def _build_premarket_summary_text(
+        self,
+        market_summary: Optional[dict] = None,
+        premarket_data: Optional[dict] = None,
+        significant_movers: Optional[dict] = None,
+    ) -> str:
+        """프리마켓 Slack 요약 메시지 텍스트 생성"""
+        tz = ZoneInfo(settings.general.timezone)
+        date_str = datetime.now(tz).strftime("%Y-%m-%d")
+
+        lines = [f"*[프리마켓] {date_str} 미국 주식 프리마켓 리포트*"]
+
+        # 시장 지수 프리마켓
+        if premarket_data:
+            lines.append("")
+            lines.append("*시장 지수 프리마켓*")
+            for ticker, pm in premarket_data.items():
+                if pm.get("has_premarket") and pm.get("pre_market_price"):
+                    price = pm["pre_market_price"]
+                    change_pct = pm.get("pre_market_change_pct", 0)
+                    arrow = "+" if change_pct >= 0 else ""
+                    lines.append(f"  {ticker}: ${price:.2f} ({arrow}{change_pct:.2f}%)")
+                else:
+                    prev = pm.get("regular_previous_close")
+                    if prev:
+                        lines.append(f"  {ticker}: 전일종가 ${prev:.2f} (PM 없음)")
+
+        # 주요 변동 종목
+        if significant_movers:
+            gainers = significant_movers.get("gainers", [])
+            losers = significant_movers.get("losers", [])
+            if gainers:
+                lines.append("")
+                lines.append("*PM 주요 상승*")
+                for g in gainers[:5]:
+                    lines.append(f"  {g['ticker']}: +{g['pre_market_change_pct']}%")
+            if losers:
+                lines.append("")
+                lines.append("*PM 주요 하락*")
+                for l in losers[:5]:
+                    lines.append(f"  {l['ticker']}: {l['pre_market_change_pct']}%")
+
+        lines.append("")
+        lines.append("상세 리포트는 첨부 파일을 확인하세요.")
+
+        return "\n".join(lines)
+
+    def send_premarket(
+        self,
+        html_content: str,
+        market_summary: Optional[dict] = None,
+        premarket_data: Optional[dict] = None,
+        significant_movers: Optional[dict] = None,
+    ) -> bool:
+        """
+        프리마켓 리포트 Slack 발송
+
+        Args:
+            html_content: HTML 리포트 본문
+            market_summary: 시장 지수 요약
+            premarket_data: 시장 ETF 프리마켓 데이터
+            significant_movers: 주요 변동 종목
+
+        Returns:
+            성공 여부
+        """
+        if not self.token:
+            logger.error("SLACK_BOT_TOKEN이 설정되지 않았습니다.")
+            return False
+
+        if not self.channel:
+            logger.error("SLACK_CHANNEL이 설정되지 않았습니다.")
+            return False
+
+        tz = ZoneInfo(settings.general.timezone)
+        date_str = datetime.now(tz).strftime("%Y-%m-%d")
+
+        summary_text = self._build_premarket_summary_text(
+            market_summary, premarket_data, significant_movers
+        )
+
+        try:
+            # 1. 요약 메시지 발송
+            logger.info(f"Slack 프리마켓 메시지 발송 중: {self.channel}")
+            msg_resp = self.client.chat_postMessage(
+                channel=self.channel,
+                text=summary_text,
+                mrkdwn=True,
+            )
+
+            channel_id = msg_resp["channel"]
+
+            # 2. HTML → PDF 변환 후 업로드
+            logger.info("HTML → PDF 변환 중...")
+            filename = f"premarket_report_{date_str}.pdf"
+
+            tmp_html_fd, tmp_html_path = tempfile.mkstemp(suffix=".html")
+            tmp_pdf_path = tmp_html_path.replace(".html", ".pdf")
+            try:
+                with os.fdopen(tmp_html_fd, "w", encoding="utf-8") as f:
+                    f.write(html_content)
+
+                result = subprocess.run(
+                    [
+                        "google-chrome",
+                        "--headless",
+                        "--disable-gpu",
+                        "--no-sandbox",
+                        f"--print-to-pdf={tmp_pdf_path}",
+                        tmp_html_path,
+                    ],
+                    capture_output=True,
+                    timeout=30,
+                )
+
+                if not os.path.exists(tmp_pdf_path):
+                    logger.error(f"PDF 변환 실패: {result.stderr.decode()}")
+                    return False
+
+                logger.info("PDF 프리마켓 리포트 파일 업로드 중...")
+                self.client.files_upload_v2(
+                    channel=channel_id,
+                    file=tmp_pdf_path,
+                    filename=filename,
+                    title=f"{date_str} 미국 주식 프리마켓 리포트",
+                    initial_comment="프리마켓 상세 리포트입니다.",
+                )
+            finally:
+                for p in (tmp_html_path, tmp_pdf_path):
+                    if os.path.exists(p):
+                        os.unlink(p)
+
+            logger.info("Slack 프리마켓 발송 완료")
+            return True
+
+        except SlackApiError as e:
+            logger.error(f"Slack API 오류: {e.response['error']}")
+            return False
+
+        except Exception as e:
+            logger.error(f"Slack 프리마켓 발송 실패: {e}")
+            return False
+
     def send_test(self) -> bool:
         """테스트 메시지 발송"""
         if not self.token:

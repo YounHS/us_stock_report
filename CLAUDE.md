@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-US Stock Report는 매일 아침 S&P 500 기반 미국 주식 시장 분석 리포트를 Slack으로 자동 발송하는 Python 시스템입니다.
+US Stock Report는 매일 아침 S&P 500 기반 미국 주식 시장 분석 리포트를 Slack으로 자동 발송하는 Python 시스템입니다. 추가로 장 시작 전 프리마켓 리포트도 제공합니다.
 
 ## Commands
 
@@ -23,8 +23,15 @@ python main.py              # 전체 실행 (리포트 생성 + Slack 발송)
 python main.py --dry-run    # 발송 없이 리포트만 생성
 python main.py --test-slack # 테스트 Slack 메시지 발송
 
-# cron 설정 (KST 07:00 = UTC 22:00)
+# 프리마켓 리포트 (장 시작 전)
+python main_premarket.py              # 프리마켓 리포트 생성 + Slack 발송
+python main_premarket.py --dry-run    # 발송 없이 리포트만 생성
+
+# cron 설정
+# 일일 리포트 (KST 07:00 = UTC 22:00)
 0 22 * * 1-5 /path/to/venv/bin/python /path/to/main.py
+# 프리마켓 리포트 (KST 21:00 = UTC 12:00)
+0 12 * * 1-5 /path/to/venv/bin/python /path/to/main_premarket.py
 ```
 
 ### GitHub Actions 스케줄링
@@ -36,9 +43,17 @@ python main.py --test-slack # 테스트 Slack 메시지 발송
 - (레거시) `SMTP_USER`, `SMTP_PASSWORD`, `EMAIL_FROM`, `EMAIL_RECIPIENTS`
 - Settings → Secrets and variables → Actions → New repository secret
 
+### 프리마켓 리포트 스케줄링
+
+`.github/workflows/run_premarket.yml`로 자동 실행 (KST 21:00 = UTC 12:00, 월-금).
+`actions/download-artifact@v4`로 일일 리포트에서 저장한 전일 추천 종목(`last_recommendations.json`)을 다운로드.
+일일 리포트 워크플로우에서 `actions/upload-artifact@v4`로 추천 상태 업로드 (retention: 2일).
+
 ## Architecture
 
-데이터 흐름: `main.py` → 데이터 수집 → 기술적 분석 → 신호 감지 → 캘린더/뉴스 수집 → 뉴스 감성 분석 → 리포트 생성(HTML) → PDF 변환 → Slack 발송
+데이터 흐름 (일일): `main.py` → 데이터 수집 → 기술적 분석 → 신호 감지 → 캘린더/뉴스 수집 → 뉴스 감성 분석 → 리포트 생성(HTML) → PDF 변환 → Slack 발송 → 추천 종목 저장
+
+데이터 흐름 (프리마켓): `main_premarket.py` → 대상 종목 결정 → 전일 OHLCV 배치 수집 → 프리마켓 가격 개별 수집 → 전일 기술적 분석 → 뉴스/캘린더 수집 → 감성 분석 → 프리마켓 HTML 리포트 → PDF → Slack 발송
 
 ### 핵심 모듈
 
@@ -53,11 +68,14 @@ python main.py --test-slack # 테스트 Slack 메시지 발송
   - `get_kalman_recommendation()`: 칼만 예측가 > 현재가 필터 기반 추가 단기 추천 (기존 추천과 중복 제외)
   - `get_longterm_recommendations()`: 추세 추종 기반 장기 투자 추천 Top N
 - **analysis/sentiment.py**: VADER(nltk) 기반 뉴스 헤드라인 감성 분석. `NewsSentimentAnalyzer` 클래스가 종목별 뉴스를 분석하여 5단계 라벨(매우 긍정/긍정/중립/부정/매우 부정) 및 0-100 게이지 점수 반환. VADER lazy 초기화 + lexicon 자동 다운로드 fallback. dataclass: `NewsItemSentiment`, `TickerSentiment`
+- **data/premarket.py**: `yf.Ticker(symbol).info`로 프리마켓 가격 개별 조회. `PreMarketFetcher.fetch_batch()`, `get_significant_movers()` (±1% 변동 필터). dataclass: `PreMarketData`
+- **data/premarket_tickers.py**: 프리마켓 대상 종목 관리. `save_recommendations()` / `load_previous_recommendations()` (JSON 파일 기반), `get_todays_earnings_tickers()`, `get_premarket_tickers()` (시장 ETF + 섹터 ETF + 전일 추천 + 당일 실적 합산)
 - **news/fetcher.py**: 핫한 종목/섹터 뉴스 수집. `fetch_hot_stocks_news()`, `fetch_sector_highlights()`. yfinance 신규 응답 구조(`item["content"]["title"]`) 및 구형 구조 모두 호환
 - **report/generator.py**: Jinja2로 `report/templates/daily_report.html` 렌더링
+- **report/premarket_generator.py**: Jinja2로 `report/templates/premarket_report.html` 렌더링. 프리마켓 전용 컨텍스트 (시장/섹터 PM 데이터, 변동 종목, 전일 추천 현황 등)
 - **notification/slack_sender.py**: Slack Bot Token 기반 메시지 + PDF 리포트 발송. 요약 메시지에 단기/칼만 추천 및 뉴스 감성 정보 포함. HTML→PDF 변환은 `google-chrome --headless --print-to-pdf` 사용
 
-### 리포트 구성
+### 리포트 구성 (일일)
 
 1. 시장 요약 (SPY, QQQ, DIA, IWM)
 2. 주요 뉴스 (핫한 종목/섹터 뉴스)
@@ -69,6 +87,18 @@ python main.py --test-slack # 테스트 Slack 메시지 발송
 8. 오늘의 추천 종목 (RSI, ADX, MACD, BB Z-Score, 거래량, ATR%, SPY대비, 52주위치, 매도 목표가, 손절가, 보유 기간, 뉴스 감성 게이지)
 9. 칼만 필터 추천 종목 (칼만 예측가 > 현재가 필터, 보라색 카드 레이아웃, 뉴스 감성 게이지)
 10. 장기 투자 추천 Top 3 (추세 추종 기반, 녹색 카드 레이아웃, 축소 감성 게이지)
+
+### 리포트 구성 (프리마켓)
+
+1. 헤더: "미국 주식 프리마켓 리포트" (오렌지 그라데이션)
+2. 시장 지수 프리마켓: SPY/QQQ/DIA/IWM — 전일종가, PM가격, PM변동%
+3. 섹터 ETF 프리마켓: 11개 섹터 ETF 히트맵 (변동% 색상 강도)
+4. 프리마켓 주요 변동: 상승/하락 테이블 (±1% 이상)
+5. 전일 추천 종목 현황: PM변동 + RSI/MACD/칼만예측가 오버레이
+6. 경제 캘린더
+7. 실적 발표 캘린더
+8. 최신 뉴스
+9. 푸터: 면책조항 + 생성 시각
 
 ### 기술적 분석 파라미터
 
@@ -213,6 +243,7 @@ sentiment = {
 - **VADER lexicon**: `nltk` 의 `vader_lexicon` 데이터 필요. `NewsSentimentAnalyzer`가 자동 다운로드 시도하지만, GitHub Actions에서는 워크플로우에 별도 다운로드 단계 포함됨
 - **템플릿 호환성**: 추천 dict 변환 시 템플릿에서 사용하는 모든 필드 포함 필요. Enhanced/Legacy 모두 `macd_signal`, `bollinger_z_score`, `atr_pct`, `target_return`, `reasons`, `kalman_predicted_price`, `kalman_trend_velocity`, `recommendation_method` 필드가 있어야 함
 - **PDF 변환**: `google-chrome --headless --print-to-pdf` 사용. 한글 출력을 위해 `fonts-noto-cjk` 필요
+- **Slack 프리마켓**: `SlackSender.send_premarket()` 메서드로 프리마켓 요약 + PDF 발송. 파일명: `premarket_report_{date}.pdf`
 - **Slack files_upload_v2**: 채널 이름이 아닌 **채널 ID**가 필요. `chat_postMessage` 응답에서 채널 ID를 추출하여 사용
 - **GitHub Actions 환경변수**: `.env` 파일은 로컬 전용. GitHub Actions에서는 Repository Secrets → 워크플로우 `env:` 블록으로 주입
 - **GitHub Actions Chrome**: `ubuntu-latest`에 Google Chrome 기본 포함. 한글 폰트(`fonts-noto-cjk`)만 추가 설치 필요

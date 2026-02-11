@@ -1,2 +1,4 @@
 .env
 __pycache__/
+last_recommendations.json
+premarket_report_*.html

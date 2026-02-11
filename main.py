@@ -356,6 +356,23 @@ def main(dry_run: bool = False, test_slack: bool = False):
         report_path = report_gen.save_to_file(html_report)
         logger.info(f"   리포트 저장: {report_path}")
 
+        # 7-1. 추천 종목 저장 (프리마켓 리포트용)
+        try:
+            from data.premarket_tickers import save_recommendations
+            rec_tickers = []
+            if recommendation:
+                rec_tickers.append(recommendation["ticker"])
+            if recommendation_kalman:
+                rec_tickers.append(recommendation_kalman["ticker"])
+            if longterm_recommendations:
+                for lt_rec in longterm_recommendations:
+                    rec_tickers.append(lt_rec["ticker"])
+            if rec_tickers:
+                save_recommendations(rec_tickers)
+                logger.info(f"   추천 종목 {len(rec_tickers)}개 저장 (프리마켓 용)")
+        except Exception as e:
+            logger.warning(f"   추천 종목 저장 실패: {e}")
+
         # 8. Slack 발송
         if dry_run:
             logger.info("8. [DRY-RUN] Slack 발송 건너뜀")
