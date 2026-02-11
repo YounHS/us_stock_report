@@ -1,6 +1,7 @@
 """프리마켓 가격 데이터 수집"""
 
 import yfinance as yf
+import pandas as pd
 from dataclasses import dataclass
 from typing import Dict, List, Optional
 import logging
@@ -137,3 +138,66 @@ class PreMarketFetcher:
         losers.sort(key=lambda x: x.pre_market_change_pct)
 
         return {"gainers": gainers, "losers": losers}
+
+    def scan_premarket_gainers(
+        self, tickers: List[str], min_change_pct: float = 1.5
+    ) -> List[str]:
+        """
+        yf.download() 배치 호출로 프리마켓 상승 종목을 빠르게 스캔
+
+        개별 yf.Ticker().info 호출(종목당 ~0.4초) 대신
+        yf.download() 2회(전일종가 + 프리마켓) 배치 호출로 수백 종목을 수초 내 처리.
+
+        Args:
+            tickers: 스캔 대상 티커 리스트
+            min_change_pct: 최소 변동률 기준 (기본 1.5%)
+
+        Returns:
+            PM 상승 종목 티커 리스트 (변동률 내림차순)
+        """
+        if not tickers:
+            return []
+
+        logger.info(f"프리마켓 gainer 배치 스캔: {len(tickers)}개 종목...")
+
+        try:
+            # 1. 전일 종가 배치 조회 (단일 HTTP 호출)
+            daily = yf.download(
+                tickers, period="5d", interval="1d",
+                progress=False, auto_adjust=True, threads=True,
+            )
+            if daily.empty:
+                logger.warning("일봉 데이터 없음")
+                return []
+
+            if isinstance(daily.columns, pd.MultiIndex):
+                prev_close = daily["Close"].iloc[-1]
+            else:
+                # 단일 종목
+                prev_close = pd.Series({tickers[0]: daily["Close"].iloc[-1]})
+
+            # 2. 프리마켓 데이터 배치 조회 (단일 HTTP 호출)
+            pm_data = yf.download(
+                tickers, period="1d", interval="1m",
+                prepost=True, progress=False, auto_adjust=True, threads=True,
+            )
+            if pm_data.empty:
+                logger.warning("프리마켓 데이터 없음")
+                return []
+
+            if isinstance(pm_data.columns, pd.MultiIndex):
+                latest = pm_data["Close"].iloc[-1]
+            else:
+                latest = pd.Series({tickers[0]: pm_data["Close"].iloc[-1]})
+
+            # 3. 변동률 계산 및 필터
+            change_pct = ((latest - prev_close) / prev_close) * 100
+            gainers = change_pct[change_pct >= min_change_pct].dropna().sort_values(ascending=False)
+
+            result = gainers.index.tolist()
+            logger.info(f"프리마켓 +{min_change_pct}% 이상: {len(result)}개 종목")
+            return result
+
+        except Exception as e:
+            logger.warning(f"프리마켓 gainer 스캔 실패: {e}")
+            return []

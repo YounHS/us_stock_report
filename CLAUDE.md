@@ -53,7 +53,7 @@ python main_premarket.py --dry-run    # 발송 없이 리포트만 생성
 
 데이터 흐름 (일일): `main.py` → 데이터 수집 → 기술적 분석 → 신호 감지 → 캘린더/뉴스 수집 → 뉴스 감성 분석 → 리포트 생성(HTML) → PDF 변환 → Slack 발송 → 추천 종목 저장
 
-데이터 흐름 (프리마켓): `main_premarket.py` → 대상 종목 결정 → 전일 OHLCV 배치 수집 → 프리마켓 가격 개별 수집 → 전일 기술적 분석 → 뉴스/캘린더 수집 → 감성 분석 → 프리마켓 HTML 리포트 → PDF → Slack 발송
+데이터 흐름 (프리마켓): `main_premarket.py` → 대상 종목 결정 → 전일 OHLCV 배치 수집 → 프리마켓 가격 개별 수집 → 전일 기술적 분석 → 뉴스/캘린더 수집 → 감성 분석 → S&P 500 PM gainer 배치 스캔(`scan_premarket_gainers`) → gainer 상세 분석 → 개장 급등 추천 → 프리마켓 HTML 리포트 → PDF → Slack 발송
 
 ### 핵심 모듈
 
@@ -69,7 +69,7 @@ python main_premarket.py --dry-run    # 발송 없이 리포트만 생성
   - `get_longterm_recommendations()`: 추세 추종 기반 장기 투자 추천 Top N
   - `get_opening_surge_recommendations()`: 프리마켓 모멘텀 + 뉴스 촉매 + 기술적 돌파 기반 개장 급등 추천 Top N
 - **analysis/sentiment.py**: VADER(nltk) 기반 뉴스 헤드라인 감성 분석. `NewsSentimentAnalyzer` 클래스가 종목별 뉴스를 분석하여 5단계 라벨(매우 긍정/긍정/중립/부정/매우 부정) 및 0-100 게이지 점수 반환. VADER lazy 초기화 + lexicon 자동 다운로드 fallback. dataclass: `NewsItemSentiment`, `TickerSentiment`
-- **data/premarket.py**: `yf.Ticker(symbol).info`로 프리마켓 가격 개별 조회. `PreMarketFetcher.fetch_batch()`, `get_significant_movers()` (±1% 변동 필터). dataclass: `PreMarketData`
+- **data/premarket.py**: `yf.Ticker(symbol).info`로 프리마켓 가격 개별 조회. `PreMarketFetcher.fetch_batch()`, `get_significant_movers()` (±1% 변동 필터), `scan_premarket_gainers()` (`yf.download()` 배치 2회 호출로 S&P 500 전체를 수초 내 스캔하여 PM 상승 종목만 추출). dataclass: `PreMarketData`
 - **data/premarket_tickers.py**: 프리마켓 대상 종목 관리. `save_recommendations()` / `load_previous_recommendations()` (JSON 파일 기반), `get_todays_earnings_tickers()`, `get_premarket_tickers()` (시장 ETF + 섹터 ETF + 전일 추천 + 당일 실적 합산)
 - **news/fetcher.py**: 핫한 종목/섹터 뉴스 수집. `fetch_hot_stocks_news()`, `fetch_sector_highlights()`. yfinance 신규 응답 구조(`item["content"]["title"]`) 및 구형 구조 모두 호환
 - **report/generator.py**: Jinja2로 `report/templates/daily_report.html` 렌더링
@@ -160,7 +160,8 @@ python main_premarket.py --dry-run    # 발송 없이 리포트만 생성
 
 **개장 급등 추천 방식** (`get_opening_surge_recommendations()`):
 - 프리마켓 모멘텀 + 뉴스 촉매 + 기술적 돌파 중심의 인트라데이 전략
-- 하드 필터: PM 데이터 필수, PM 변동 >= `surge_min_pm_change_pct`(기본 1.5%), ADX>30+bearish 제외, RSI>85 제외 (레버리지 ETF 포함 허용)
+- **후보 스캔**: `scan_premarket_gainers()`로 S&P 500 전체를 `yf.download()` 배치 2회(전일종가 + PM)로 빠르게 스캔 → PM 상승 종목만 추출 → 해당 종목만 상세 PM + OHLCV + 기술적 분석 + 감성 분석 수행. 종목 유형 제한 없음 (개별 주식, ETF, 레버리지 모두 허용)
+- 하드 필터: PM 데이터 필수, PM 변동 >= `surge_min_pm_change_pct`(기본 1.5%), ADX>30+bearish 제외, RSI>85 제외
 - 가중치 합계 100점: PM모멘텀(25) > 뉴스촉매(20) > 거래량(15) > 갭설정(10) > Squeeze(10) > 상대강도(8) > ADX(7) > Stochastic(5)
 - `surge_min_score`(기본 30) 이상만 추천 대상, 점수 내림차순 Top N(기본 3)
 - 목표가: PM가격 + ATR × `surge_atr_target_multiplier`, 손절가: PM가격 - ATR × `surge_atr_stop_multiplier` (ATR 없을 시 2% 추정)

@@ -19,7 +19,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from config.settings import settings
-from config.sp500_tickers import MARKET_ETFS, SECTOR_ETFS
+from config.sp500_tickers import MARKET_ETFS, SECTOR_ETFS, get_all_tickers
 from data.fetcher import StockDataFetcher
 from data.premarket import PreMarketFetcher
 from data.premarket_tickers import (
@@ -191,43 +191,64 @@ def main(dry_run: bool = False):
         except Exception as e:
             logger.warning(f"   감성 분석 실패 (리포트 생성 계속): {e}")
 
-        # 6-2. 개장 급등 추천
+        # 6-2. 개장 급등 추천 (S&P 500 PM gainer만 분석)
         opening_surge_recommendations = []
         try:
-            logger.info("6-2. 개장 급등 추천 분석 중...")
+            logger.info("6-2. 개장 급등 추천 — S&P 500 PM gainer 스캔 중...")
+            min_pm_pct = settings.analysis.surge_min_pm_change_pct
+
+            # 6-2a. yf.download 배치로 PM 상승 종목 빠르게 스캔 (2회 HTTP 호출)
+            sp500_tickers = get_all_tickers()
+            surge_gainer_tickers = pm_fetcher.scan_premarket_gainers(
+                sp500_tickers, min_change_pct=min_pm_pct,
+            )
+
+            if surge_gainer_tickers:
+                # 6-2b. gainer 종목만 상세 PM 데이터 수집 (개별 info 호출)
+                new_pm_tickers = [t for t in surge_gainer_tickers if t not in premarket_data]
+                if new_pm_tickers:
+                    logger.info(f"   PM gainer {len(new_pm_tickers)}개 상세 데이터 수집 중...")
+                    new_pm = pm_fetcher.fetch_batch(new_pm_tickers)
+                    premarket_data.update(new_pm)
+
+                # 6-2c. gainer 종목 OHLCV + 기술적 분석 (미분석 종목만)
+                analyze_tickers = [t for t in surge_gainer_tickers if t not in analysis_results]
+                if analyze_tickers:
+                    logger.info(f"   {len(analyze_tickers)}개 종목 기술적 분석 중...")
+                    surge_stock_data = fetcher.fetch_batch(analyze_tickers)
+                    surge_analysis = TechnicalAnalyzer().analyze_batch(surge_stock_data, spy_df)
+                    analysis_results.update(surge_analysis)
+
+                # 6-2d. gainer 종목 뉴스 감성 분석 (미분석 종목만)
+                surge_sentiment = {}
+                surge_news_tickers = [t for t in surge_gainer_tickers if t not in sentiment_results]
+                if surge_news_tickers:
+                    surge_news_map = {}
+                    for t in surge_news_tickers:
+                        if t in ticker_news_map:
+                            surge_news_map[t] = ticker_news_map[t]
+                        else:
+                            t_news = news_fetcher.fetch_ticker_news(t)
+                            if t_news:
+                                surge_news_map[t] = t_news
+                    if surge_news_map:
+                        surge_analyzer = NewsSentimentAnalyzer()
+                        surge_sentiment = surge_analyzer.analyze_multiple_tickers(surge_news_map)
+
+                all_surge_sentiment = dict(sentiment_results)
+                all_surge_sentiment.update(surge_sentiment)
+            else:
+                logger.info("   PM 상승 종목 없음")
+                all_surge_sentiment = dict(sentiment_results)
+
+            # 6-2e. 개장 급등 추천 실행
             signal_detector = SignalDetector(analysis_results)
-
-            # PM +1.5% 이상 gainer 종목의 뉴스 추가 수집 + 감성 분석
-            surge_sentiment = {}
-            pm_gainers = [
-                g.ticker for g in significant_movers_raw["gainers"]
-                if g.pre_market_change_pct is not None
-                and g.pre_market_change_pct >= settings.analysis.surge_min_pm_change_pct
-            ]
-            if pm_gainers:
-                surge_news_map = {}
-                for t in pm_gainers:
-                    if t not in ticker_news_map:
-                        t_news = news_fetcher.fetch_ticker_news(t)
-                        if t_news:
-                            surge_news_map[t] = t_news
-                    else:
-                        surge_news_map[t] = ticker_news_map[t]
-
-                if surge_news_map:
-                    surge_analyzer = NewsSentimentAnalyzer()
-                    surge_sentiment = surge_analyzer.analyze_multiple_tickers(surge_news_map)
-
-            # 기존 sentiment_results와 병합
-            all_surge_sentiment = dict(sentiment_results)
-            all_surge_sentiment.update(surge_sentiment)
-
             opening_surge_recommendations = signal_detector.get_opening_surge_recommendations(
                 premarket_data=premarket_data,
                 sentiment_results=all_surge_sentiment,
             )
 
-            # 추천 종목에 sentiment dict 주입 (아직 없는 경우)
+            # 추천 종목에 sentiment dict 주입
             for rec in opening_surge_recommendations:
                 t = rec["ticker"]
                 if rec.get("sentiment") is None and t in all_surge_sentiment:
