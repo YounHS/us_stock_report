@@ -133,6 +133,23 @@ class AnalysisSettings(BaseSettings):
     surge_weight_adx: int = Field(default=7, alias="SURGE_WEIGHT_ADX")
     surge_weight_stochastic: int = Field(default=5, alias="SURGE_WEIGHT_STOCHASTIC")
 
+    # Business Cycle Indicator
+    cycle_yield_curve_steep: float = Field(default=1.5, alias="CYCLE_YC_STEEP")
+    cycle_yield_curve_flat: float = Field(default=0.5, alias="CYCLE_YC_FLAT")
+    cycle_yield_curve_inversion: float = Field(default=-0.1, alias="CYCLE_YC_INVERSION")
+    cycle_vix_low: float = Field(default=15.0, alias="CYCLE_VIX_LOW")
+    cycle_vix_high: float = Field(default=25.0, alias="CYCLE_VIX_HIGH")
+    cycle_breadth_strong: float = Field(default=1.5, alias="CYCLE_BREADTH_STRONG")
+    cycle_breadth_weak: float = Field(default=0.8, alias="CYCLE_BREADTH_WEAK")
+
+    # Cycle factor weights (합계 100)
+    cycle_w_sector: int = Field(default=30, alias="CYCLE_W_SECTOR")
+    cycle_w_yield: int = Field(default=25, alias="CYCLE_W_YIELD")
+    cycle_w_breadth: int = Field(default=15, alias="CYCLE_W_BREADTH")
+    cycle_w_vix: int = Field(default=15, alias="CYCLE_W_VIX")
+    cycle_w_risk: int = Field(default=10, alias="CYCLE_W_RISK")
+    cycle_w_credit: int = Field(default=5, alias="CYCLE_W_CREDIT")
+
 
 class SlackSettings(BaseSettings):
     bot_token: str = Field(default="", alias="SLACK_BOT_TOKEN")

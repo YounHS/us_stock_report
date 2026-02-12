@@ -108,12 +108,14 @@ class EnhancedRecommendation:
 class SignalDetector:
     """매수 신호 감지기"""
 
-    def __init__(self, analysis_results: Dict[str, Dict]):
+    def __init__(self, analysis_results: Dict[str, Dict], exclude_tickers: Optional[set] = None):
         """
         Args:
             analysis_results: TechnicalAnalyzer.analyze_batch() 결과
+            exclude_tickers: 추천에서 제외할 종목 (부진 섹터 등)
         """
         self.analysis_results = analysis_results
+        self.exclude_tickers = exclude_tickers or set()
 
     def detect_rsi_oversold(self) -> List[BuySignal]:
         """RSI 과매도 종목 감지"""
@@ -280,6 +282,9 @@ class SignalDetector:
         # 칼만 예측가 기준 10% 이상 상승 여력 체크 헬퍼
         def _find_kalman_valid(signal_list):
             for candidate in signal_list:
+                # 부진 섹터 종목 제외
+                if candidate.ticker in self.exclude_tickers:
+                    continue
                 analysis = self.analysis_results.get(candidate.ticker, {})
                 kalman = analysis.get("kalman")
                 close = analysis.get("close", 0)
@@ -668,6 +673,10 @@ class SignalDetector:
         all_candidates = []
 
         for ticker, analysis in self.analysis_results.items():
+            # 부진 섹터 종목 제외
+            if ticker in self.exclude_tickers:
+                continue
+
             # 기본 지표가 없으면 스킵
             if not analysis.get("rsi") and not analysis.get("bollinger"):
                 continue
@@ -903,11 +912,11 @@ class SignalDetector:
         Returns:
             EnhancedRecommendation or None
         """
-        exclude = set(exclude_tickers or [])
+        exclude = set(exclude_tickers or []) | self.exclude_tickers
         candidates = []
 
         for ticker, analysis in self.analysis_results.items():
-            # 제외 종목 스킵
+            # 제외 종목 스킵 (기존 추천 중복 + 부진 섹터)
             if ticker in exclude:
                 continue
 
@@ -1364,6 +1373,10 @@ class SignalDetector:
         candidates = []
 
         for ticker, analysis in self.analysis_results.items():
+            # 부진 섹터 종목 제외
+            if ticker in self.exclude_tickers:
+                continue
+
             # 하드 필터
             if not self._longterm_passes_hard_filters(ticker, analysis):
                 continue

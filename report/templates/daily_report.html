@@ -664,6 +664,102 @@
             height: 14px;
             top: -3px;
         }
+        /* 경기 사이클 인디케이터 */
+        .cycle-container {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .cycle-svg-wrap {
+            display: inline-block;
+            max-width: 400px;
+            width: 100%;
+        }
+        .cycle-svg-wrap svg {
+            width: 100%;
+            height: auto;
+        }
+        .cycle-prob-bar-wrap {
+            display: flex;
+            height: 24px;
+            border-radius: 6px;
+            overflow: hidden;
+            margin: 15px 0 8px 0;
+        }
+        .cycle-prob-bar-wrap .cpb {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 600;
+            color: #fff;
+            transition: width 0.3s;
+        }
+        .cpb-early { background: #3b82f6; }
+        .cpb-mid { background: #22c55e; }
+        .cpb-late { background: #f59e0b; }
+        .cpb-contraction { background: #ef4444; }
+        .cycle-prob-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            color: #6b7280;
+            margin-bottom: 15px;
+        }
+        .cycle-summary {
+            border-left: 4px solid #3b82f6;
+            background: #eff6ff;
+            padding: 12px 16px;
+            border-radius: 0 8px 8px 0;
+            text-align: left;
+            font-size: 13px;
+            color: #1e3a5f;
+            line-height: 1.7;
+            margin-bottom: 15px;
+        }
+        .cycle-sectors-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 15px;
+        }
+        .cycle-sector-box {
+            border-radius: 8px;
+            padding: 12px;
+        }
+        .cycle-sector-box.leading {
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+        }
+        .cycle-sector-box.lagging {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+        }
+        .cycle-sector-box h4 {
+            font-size: 13px;
+            margin: 0 0 8px 0;
+        }
+        .cycle-sector-tag {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            margin: 2px;
+        }
+        .cycle-sector-tag.lead { background: #dcfce7; color: #166534; }
+        .cycle-sector-tag.lag { background: #fee2e2; color: #991b1b; }
+        .cycle-phase-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 500;
+            color: #fff;
+        }
+        .cycle-phase-badge.early { background: #3b82f6; }
+        .cycle-phase-badge.mid { background: #22c55e; }
+        .cycle-phase-badge.late { background: #f59e0b; }
+        .cycle-phase-badge.contraction { background: #ef4444; }
+        .cycle-phase-badge.na { background: #9ca3af; color: #fff; }
     </style>
 </head>
 <body>
@@ -809,7 +905,145 @@
         </div>
         {% endif %}
 
-        <!-- 섹터별 트렌드 -->
+        <!-- 경기 사이클 인디케이터 -->
+        {% if business_cycle %}
+        <div class="section">
+            <h2>경기 사이클 인디케이터</h2>
+            <div class="cycle-container">
+                <div class="cycle-svg-wrap">
+                    <svg viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+                        <!-- 배경 원 -->
+                        <circle cx="200" cy="200" r="170" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1"/>
+
+                        <!-- 4개 사분면 (시계 방향: 회복-확장-과열-수축) -->
+                        <!-- 회복기: 10시~1시 (270°~360°) → 우상단 -->
+                        <path d="M200,200 L200,30 A170,170 0 0,1 370,200 Z" fill="#dbeafe" opacity="0.6"/>
+                        <!-- 확장기: 1시~4시 (0°~90°) → 우하단 -->
+                        <path d="M200,200 L370,200 A170,170 0 0,1 200,370 Z" fill="#dcfce7" opacity="0.6"/>
+                        <!-- 과열기: 4시~7시 (90°~180°) → 좌하단 -->
+                        <path d="M200,200 L200,370 A170,170 0 0,1 30,200 Z" fill="#fef3c7" opacity="0.6"/>
+                        <!-- 수축기: 7시~10시 (180°~270°) → 좌상단 -->
+                        <path d="M200,200 L30,200 A170,170 0 0,1 200,30 Z" fill="#fee2e2" opacity="0.6"/>
+
+                        <!-- 십자선 -->
+                        <line x1="200" y1="30" x2="200" y2="370" stroke="#d1d5db" stroke-width="1" stroke-dasharray="4,4"/>
+                        <line x1="30" y1="200" x2="370" y2="200" stroke="#d1d5db" stroke-width="1" stroke-dasharray="4,4"/>
+
+                        <!-- 시계 방향 화살표 (궤도) -->
+                        <circle cx="200" cy="200" r="130" fill="none" stroke="#9ca3af" stroke-width="1" stroke-dasharray="6,4" opacity="0.5"/>
+
+                        <!-- 방향 화살표 (12시 위치) -->
+                        <path d="M210,72 L216,64 L212,68 L218,68 Z" fill="#9ca3af" opacity="0.6"/>
+
+                        <!-- 국면 라벨 -->
+                        <!-- 회복기 (우상단) -->
+                        <text x="300" y="100" text-anchor="middle" font-size="15" font-weight="700" fill="#2563eb">회복기</text>
+                        <text x="300" y="116" text-anchor="middle" font-size="9" fill="#6b7280">Consumer Disc.</text>
+                        <text x="300" y="128" text-anchor="middle" font-size="9" fill="#6b7280">Financials, Industrials</text>
+
+                        <!-- 확장기 (우하단) -->
+                        <text x="300" y="290" text-anchor="middle" font-size="15" font-weight="700" fill="#16a34a">확장기</text>
+                        <text x="300" y="306" text-anchor="middle" font-size="9" fill="#6b7280">Technology</text>
+                        <text x="300" y="318" text-anchor="middle" font-size="9" fill="#6b7280">Communication Svcs.</text>
+
+                        <!-- 과열기 (좌하단) -->
+                        <text x="100" y="290" text-anchor="middle" font-size="15" font-weight="700" fill="#d97706">과열기</text>
+                        <text x="100" y="306" text-anchor="middle" font-size="9" fill="#6b7280">Energy</text>
+                        <text x="100" y="318" text-anchor="middle" font-size="9" fill="#6b7280">Materials</text>
+
+                        <!-- 수축기 (좌상단) -->
+                        <text x="100" y="100" text-anchor="middle" font-size="15" font-weight="700" fill="#dc2626">수축기</text>
+                        <text x="100" y="116" text-anchor="middle" font-size="9" fill="#6b7280">Consumer Staples</text>
+                        <text x="100" y="128" text-anchor="middle" font-size="9" fill="#6b7280">Utilities, Health Care</text>
+
+                        <!-- 현재 위치 마커 -->
+                        <circle cx="{{ business_cycle.marker_x }}" cy="{{ business_cycle.marker_y }}" r="12" fill="#ef4444" stroke="#fff" stroke-width="3">
+                            <animate attributeName="r" values="10;13;10" dur="2s" repeatCount="indefinite"/>
+                        </circle>
+                        <circle cx="{{ business_cycle.marker_x }}" cy="{{ business_cycle.marker_y }}" r="4" fill="#fff"/>
+
+                        <!-- 마커 라벨 -->
+                        <text x="{{ business_cycle.marker_x }}" y="{{ business_cycle.marker_y - 18 }}" text-anchor="middle" font-size="10" font-weight="600" fill="#ef4444">현재</text>
+                    </svg>
+                </div>
+            </div>
+
+            <!-- 국면 확률 바 -->
+            <div class="cycle-prob-bar-wrap">
+                {% set probs = business_cycle.phase_probabilities %}
+                <div class="cpb cpb-early" style="width: {{ (probs.early * 100)|round(1) }}%">
+                    {% if probs.early >= 0.08 %}{{ (probs.early * 100)|round(0)|int }}%{% endif %}
+                </div>
+                <div class="cpb cpb-mid" style="width: {{ (probs.mid * 100)|round(1) }}%">
+                    {% if probs.mid >= 0.08 %}{{ (probs.mid * 100)|round(0)|int }}%{% endif %}
+                </div>
+                <div class="cpb cpb-late" style="width: {{ (probs.late * 100)|round(1) }}%">
+                    {% if probs.late >= 0.08 %}{{ (probs.late * 100)|round(0)|int }}%{% endif %}
+                </div>
+                <div class="cpb cpb-contraction" style="width: {{ (probs.contraction * 100)|round(1) }}%">
+                    {% if probs.contraction >= 0.08 %}{{ (probs.contraction * 100)|round(0)|int }}%{% endif %}
+                </div>
+            </div>
+            <div class="cycle-prob-labels">
+                <span style="color: #3b82f6;">회복기</span>
+                <span style="color: #22c55e;">확장기</span>
+                <span style="color: #f59e0b;">과열기</span>
+                <span style="color: #ef4444;">수축기</span>
+            </div>
+
+            <!-- 요약 -->
+            <div class="cycle-summary">
+                {{ business_cycle.summary }}
+            </div>
+
+            <!-- 주도/부진 섹터 -->
+            <div class="cycle-sectors-grid">
+                <div class="cycle-sector-box leading">
+                    <h4 style="color: #166534;">주도 섹터</h4>
+                    {% for s in business_cycle.leading_sectors %}
+                    <span class="cycle-sector-tag lead">{{ s }}</span>
+                    {% endfor %}
+                </div>
+                <div class="cycle-sector-box lagging">
+                    <h4 style="color: #991b1b;">부진 섹터</h4>
+                    {% for s in business_cycle.lagging_sectors %}
+                    <span class="cycle-sector-tag lag">{{ s }}</span>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- 팩터 판독 테이블 -->
+            <table>
+                <thead>
+                    <tr>
+                        <th>팩터</th>
+                        <th>현재값</th>
+                        <th>국면 신호</th>
+                        <th>비중</th>
+                        <th>설명</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for f in business_cycle.factor_readings %}
+                    <tr>
+                        <td><strong>{{ f.name }}</strong></td>
+                        <td>{{ f.display_value }}</td>
+                        <td>
+                            {% if f.phase_signal %}
+                            <span class="cycle-phase-badge {{ f.phase_signal }}">{{ f.phase_signal_label }}</span>
+                            {% else %}
+                            <span class="cycle-phase-badge na">N/A</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ f.weight }}%</td>
+                        <td style="font-size: 12px; color: #6b7280;">{{ f.description }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <!-- Fallback: 섹터별 트렌드 (사이클 분석 실패 시) -->
         <div class="section">
             <h2>섹터별 트렌드</h2>
             {% if sector_performance %}
@@ -847,6 +1081,7 @@
                 <div class="empty-message">섹터 데이터를 분석할 수 없습니다.</div>
             {% endif %}
         </div>
+        {% endif %}
 
         <!-- 1시그마 근접 종목 -->
         <div class="section">

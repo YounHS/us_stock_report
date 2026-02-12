@@ -1,5 +1,6 @@
 """리포트 생성기"""
 
+import math
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -39,6 +40,7 @@ class ReportGenerator:
         economic_calendar: Optional[Dict] = None,
         earnings_calendar: Optional[Dict] = None,
         longterm_recommendations: Optional[List[Dict]] = None,
+        business_cycle=None,
         report_date: Optional[str] = None,
     ) -> str:
         """
@@ -87,6 +89,41 @@ class ReportGenerator:
                 for s in signal_list
             ]
 
+        # BusinessCycleResult → dict 변환 + SVG 마커 좌표 사전 계산
+        business_cycle_dict = None
+        if business_cycle is not None:
+            from analysis.business_cycle import PHASE_LABELS, PHASE_ANGLES
+            angle_svg = business_cycle.phase_position - 90  # SVG 좌표계 변환 (12시=0도 → 3시=0도)
+            angle_rad = math.radians(angle_svg)
+            marker_x = 200 + 130 * math.cos(angle_rad)
+            marker_y = 200 + 130 * math.sin(angle_rad)
+
+            business_cycle_dict = {
+                "current_phase": business_cycle.current_phase,
+                "current_phase_label": PHASE_LABELS.get(business_cycle.current_phase, ""),
+                "phase_position": business_cycle.phase_position,
+                "marker_x": round(marker_x, 1),
+                "marker_y": round(marker_y, 1),
+                "phase_probabilities": business_cycle.phase_probabilities,
+                "leading_sectors": business_cycle.leading_sectors,
+                "lagging_sectors": business_cycle.lagging_sectors,
+                "summary": business_cycle.summary,
+                "factor_readings": [
+                    {
+                        "name": f.name,
+                        "value": f.value,
+                        "display_value": f.display_value,
+                        "phase_signal": f.phase_signal,
+                        "phase_signal_label": PHASE_LABELS.get(f.phase_signal, "N/A") if f.phase_signal else "N/A",
+                        "weight": f.weight,
+                        "description": f.description,
+                    }
+                    for f in business_cycle.factor_readings
+                ],
+                "phase_labels": PHASE_LABELS,
+                "phase_angles": PHASE_ANGLES,
+            }
+
         tz = ZoneInfo(settings.general.timezone)
         now = datetime.now(tz)
         context = {
@@ -103,6 +140,7 @@ class ReportGenerator:
             "economic_calendar": economic_calendar,
             "earnings_calendar": earnings_calendar,
             "longterm_recommendations": longterm_recommendations,
+            "business_cycle": business_cycle_dict,
         }
 
         return template.render(**context)

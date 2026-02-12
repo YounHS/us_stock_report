@@ -18,7 +18,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from config.settings import settings
-from config.sp500_tickers import get_all_tickers, get_ticker_info
+from config.sp500_tickers import get_all_tickers, get_ticker_info, get_sp500_by_sector
 from data.fetcher import StockDataFetcher
 from data.calendar import EconomicCalendar, EarningsCalendar
 from analysis.technical import TechnicalAnalyzer
@@ -70,6 +70,11 @@ def main(dry_run: bool = False, test_slack: bool = False):
         stock_data = fetcher.fetch_batch(tickers)
         logger.info(f"   {len(stock_data)}개 종목 데이터 수집 완료")
 
+        # 경기 사이클 분석용 추가 티커
+        cycle_extra_tickers = ["^TNX", "^IRX", "^VIX", "HYG", "TLT"]
+        cycle_data = fetcher.fetch_batch(cycle_extra_tickers, include_spy=False)
+        logger.info(f"   사이클 분석용 {len(cycle_data)}개 티커 수집 완료")
+
         # 시장 요약 (SPY, QQQ 등)
         market_summary = fetcher.get_market_summary()
         logger.info(f"   시장 지수 요약: {list(market_summary.keys())}")
@@ -90,9 +95,33 @@ def main(dry_run: bool = False, test_slack: bool = False):
         top_movers = sector_analyzer.get_top_movers(n=10)
         logger.info(f"   {len(sector_performance)}개 섹터 분석 완료")
 
+        # 4-1. 경기 사이클 분석
+        logger.info("4-1. 경기 사이클 분석 중...")
+        from analysis.business_cycle import BusinessCycleAnalyzer
+        cycle_analyzer = BusinessCycleAnalyzer()
+        all_data_for_cycle = {**stock_data, **cycle_data}
+        cycle_result = cycle_analyzer.analyze(
+            sector_performance=sector_performance,
+            market_breadth=market_breadth,
+            stock_data=all_data_for_cycle,
+        )
+        if cycle_result:
+            logger.info(f"   경기 국면: {cycle_result.current_phase} ({cycle_result.phase_position:.0f}°)")
+        else:
+            logger.warning("   경기 사이클 분석 실패 (리포트 생성 계속)")
+
+        # 4-2. 부진 섹터 종목 수집 (추천 제외용)
+        lagging_sector_tickers = set()
+        if cycle_result and cycle_result.lagging_sectors:
+            sector_map = get_sp500_by_sector()
+            for sector_name in cycle_result.lagging_sectors:
+                tickers_in_sector = sector_map.get(sector_name, [])
+                lagging_sector_tickers.update(tickers_in_sector)
+            logger.info(f"   부진 섹터 ({', '.join(cycle_result.lagging_sectors)}) 종목 {len(lagging_sector_tickers)}개 추천 제외")
+
         # 5. 매수 신호 감지
         logger.info("5. 매수 신호 감지 중...")
-        signal_detector = SignalDetector(analysis_results)
+        signal_detector = SignalDetector(analysis_results, exclude_tickers=lagging_sector_tickers)
         signals = signal_detector.get_all_signals()
 
         logger.info(f"   RSI 과매도: {len(signals['rsi_oversold'])}개")
@@ -350,6 +379,7 @@ def main(dry_run: bool = False, test_slack: bool = False):
             economic_calendar=economic_calendar,
             earnings_calendar=earnings_calendar,
             longterm_recommendations=longterm_recommendations,
+            business_cycle=cycle_result,
         )
 
         # 리포트 파일 저장

@@ -51,7 +51,7 @@ python main_premarket.py --dry-run    # 발송 없이 리포트만 생성
 
 ## Architecture
 
-데이터 흐름 (일일): `main.py` → 데이터 수집 → 기술적 분석 → 신호 감지 → 캘린더/뉴스 수집 → 뉴스 감성 분석 → 리포트 생성(HTML) → PDF 변환 → Slack 발송 → 추천 종목 저장
+데이터 흐름 (일일): `main.py` → 데이터 수집 → 기술적 분석 → 섹터 분석 → **경기 사이클 분석** → 신호 감지 → 캘린더/뉴스 수집 → 뉴스 감성 분석 → 리포트 생성(HTML) → PDF 변환 → Slack 발송 → 추천 종목 저장
 
 데이터 흐름 (프리마켓): `main_premarket.py` → 대상 종목 결정 → 전일 OHLCV 배치 수집 → 프리마켓 가격 개별 수집 → 전일 기술적 분석 → 뉴스/캘린더 수집 → 감성 분석 → S&P 500 PM gainer 배치 스캔(`scan_premarket_gainers`) → gainer 상세 분석 → 개장 급등 추천 → 프리마켓 HTML 리포트 → PDF → Slack 발송
 
@@ -68,11 +68,12 @@ python main_premarket.py --dry-run    # 발송 없이 리포트만 생성
   - `get_kalman_recommendation()`: 칼만 예측가 > 현재가 필터 기반 추가 단기 추천 (기존 추천과 중복 제외)
   - `get_longterm_recommendations()`: 추세 추종 기반 장기 투자 추천 Top N
   - `get_opening_surge_recommendations()`: 프리마켓 모멘텀 + 뉴스 촉매 + 기술적 돌파 기반 개장 급등 추천 Top N
+- **analysis/business_cycle.py**: 경기 순환 사이클 분석. `BusinessCycleAnalyzer`가 6개 복합 팩터(섹터 로테이션, 수익률 곡선, 시장 너비, VIX, 위험 선호도, 신용 스프레드)를 종합하여 4개 국면(회복기/확장기/과열기/수축기) 판별. 원형 가중 평균(circular mean)으로 0-360도 연속 위치 계산. 추가 데이터 소스: `^TNX`, `^IRX`, `^VIX`, `HYG`, `TLT` (별도 `fetch_batch` 호출). dataclass: `CycleFactorReading`, `BusinessCycleResult`. 실패 시 기존 섹터 테이블로 폴백
 - **analysis/sentiment.py**: VADER(nltk) 기반 뉴스 헤드라인 감성 분석. `NewsSentimentAnalyzer` 클래스가 종목별 뉴스를 분석하여 5단계 라벨(매우 긍정/긍정/중립/부정/매우 부정) 및 0-100 게이지 점수 반환. VADER lazy 초기화 + lexicon 자동 다운로드 fallback. dataclass: `NewsItemSentiment`, `TickerSentiment`
 - **data/premarket.py**: `yf.Ticker(symbol).info`로 프리마켓 가격 개별 조회. `PreMarketFetcher.fetch_batch()`, `get_significant_movers()` (±1% 변동 필터), `scan_premarket_gainers()` (`yf.download()` 배치 2회 호출로 S&P 500 전체를 수초 내 스캔하여 PM 상승 종목만 추출). dataclass: `PreMarketData`
 - **data/premarket_tickers.py**: 프리마켓 대상 종목 관리. `save_recommendations()` / `load_previous_recommendations()` (JSON 파일 기반), `get_todays_earnings_tickers()`, `get_premarket_tickers()` (시장 ETF + 섹터 ETF + 전일 추천 + 당일 실적 합산)
 - **news/fetcher.py**: 핫한 종목/섹터 뉴스 수집. `fetch_hot_stocks_news()`, `fetch_sector_highlights()`. yfinance 신규 응답 구조(`item["content"]["title"]`) 및 구형 구조 모두 호환
-- **report/generator.py**: Jinja2로 `report/templates/daily_report.html` 렌더링
+- **report/generator.py**: Jinja2로 `report/templates/daily_report.html` 렌더링. `BusinessCycleResult` → dict 변환 및 SVG 마커 좌표(cos/sin) 사전 계산
 - **report/premarket_generator.py**: Jinja2로 `report/templates/premarket_report.html` 렌더링. 프리마켓 전용 컨텍스트 (시장/섹터 PM 데이터, 변동 종목, 전일 추천 현황 등)
 - **notification/slack_sender.py**: Slack Bot Token 기반 메시지 + PDF 리포트 발송. 요약 메시지에 단기/칼만 추천 및 뉴스 감성 정보 포함. HTML→PDF 변환은 `google-chrome --headless --print-to-pdf` 사용
 
@@ -82,7 +83,7 @@ python main_premarket.py --dry-run    # 발송 없이 리포트만 생성
 2. 주요 뉴스 (핫한 종목/섹터 뉴스)
 3. 경제 캘린더 (FOMC, ISM PMI, 고용지표 등)
 4. 실적 발표 캘린더 (주요 종목 2주간 일정)
-5. 섹터별 트렌드
+5. 경기 사이클 인디케이터 (4국면 원형 SVG 다이어그램, 6개 팩터 판독, 국면 확률 바, 주도/부진 섹터)
 6. 기술적 분석 신호 (1시그마 근접, RSI 과매도, MACD 골든크로스, 복합 신호)
 7. Top 10 상승/하락
 8. 오늘의 추천 종목 (RSI, ADX, MACD, BB Z-Score, 거래량, ATR%, SPY대비, 52주위치, 매도 목표가, 손절가, 보유 기간, 뉴스 감성 게이지)
@@ -114,6 +115,7 @@ python main_premarket.py --dry-run    # 발송 없이 리포트만 생성
 - OBV: 20일 SMA 기준, 매집(accumulation)/분산(distribution)/중립(neutral) 추세 판별
 - Stochastic: %K=14일, %D=3일 SMA, 과매도(<20), 과매수(>80)
 - TTM Squeeze: 볼린저밴드 20일/2σ, 켈트너채널 20일/1.5ATR. Squeeze ON = 변동성 수축
+- 경기 사이클: 6개 팩터 가중 투표 (섹터 로테이션 30, 수익률 곡선 25, 시장 너비 15, VIX 15, 위험 선호도 10, 신용 스프레드 5). 수익률 곡선 임계값: 급경사 1.5%, 평탄 0.5%, 역전 -0.1%. VIX 임계값: 저 15, 고 25. 시장 너비 A/D ratio: 강 1.5, 약 0.8
 
 ### 추천 종목 선정 로직
 
@@ -236,6 +238,25 @@ sentiment = {
 }
 ```
 
+**BusinessCycle (경기 사이클, 선택)**:
+```python
+business_cycle = {
+    "current_phase",          # "early", "mid", "late", "contraction"
+    "current_phase_label",    # "회복기", "확장기", "과열기", "수축기"
+    "phase_position",         # 0-360도
+    "marker_x", "marker_y",  # SVG 마커 좌표 (사전 계산)
+    "phase_probabilities",    # {"early": 0.3, "mid": 0.4, "late": 0.2, "contraction": 0.1}
+    "leading_sectors",        # 현재 국면 주도 섹터 리스트
+    "lagging_sectors",        # 현재 국면 부진 섹터 리스트
+    "summary",                # 요약 문장
+    "factor_readings": [      # 6개 팩터 판독
+        {"name", "display_value", "phase_signal", "phase_signal_label", "weight", "description"}
+    ],
+}
+```
+
+`business_cycle`이 `None`이면 기존 섹터 테이블로 폴백 표시 (Jinja2 `{% if business_cycle %}` 분기).
+
 템플릿에서 `is not none` 체크로 None 값 처리. Enhanced 전용 필드는 Legacy 사용 시 main.py에서 기본값 설정.
 `recommendation_method` 필드로 리포트/Slack에 사용된 추천 방식(Enhanced/Legacy/Kalman) 표시.
 `sentiment` 필드는 감성 분석 성공 시에만 주입됨. 템플릿에서 `is defined` 체크로 없을 때 안전하게 생략. 감성 분석 실패해도 리포트 생성에 영향 없음 (try/except 감싸져 있음).
@@ -260,3 +281,5 @@ sentiment = {
 - **Slack files_upload_v2**: 채널 이름이 아닌 **채널 ID**가 필요. `chat_postMessage` 응답에서 채널 ID를 추출하여 사용
 - **GitHub Actions 환경변수**: `.env` 파일은 로컬 전용. GitHub Actions에서는 Repository Secrets → 워크플로우 `env:` 블록으로 주입
 - **GitHub Actions Chrome**: `ubuntu-latest`에 Google Chrome 기본 포함. 한글 폰트(`fonts-noto-cjk`)만 추가 설치 필요
+- **경기 사이클 데이터**: `^TNX`, `^IRX`, `^VIX`, `HYG`, `TLT`를 별도 `fetch_batch(include_spy=False)` 호출로 수집. S&P 500 `stock_data`와 분리하여 `SectorAnalyzer`/`TechnicalAnalyzer`가 순회 시 오염 방지. 분석 시 `{**stock_data, **cycle_data}` 병합하여 IWM/SPY도 사용
+- **사이클 SVG**: 인라인 SVG 사용 (외부 이미지 없음). Chrome headless PDF 변환 호환. Jinja2에 cos/sin 없으므로 generator.py에서 마커 좌표 사전 계산
