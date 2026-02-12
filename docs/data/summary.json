@@ -1,0 +1,19 @@
+{
+  "generated_at": "2026-02-12 20:15:44",
+  "total_recommendations": 3,
+  "pending_count": 3,
+  "evaluated_count": 0,
+  "overall": {
+    "count": 0,
+    "win_rate": 0,
+    "avg_return": 0,
+    "best_return": 0,
+    "worst_return": 0,
+    "profit_factor": 0,
+    "win_streak": 0,
+    "loss_streak": 0
+  },
+  "by_method": {},
+  "rolling_30d": {},
+  "cumulative_returns": []
+}

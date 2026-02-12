@@ -52,3 +52,13 @@ jobs:
         path: last_recommendations.json
         retention-days: 2
         if-no-files-found: ignore
+
+    - name: Commit tracking data
+      if: success()
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git pull --rebase origin main || true
+        git add docs/data/recommendations.json docs/data/summary.json
+        git diff --cached --quiet || git commit -m "chore: update tracking data [skip ci]"
+        git push || { git pull --rebase origin main && git push; }

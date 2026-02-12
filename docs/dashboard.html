@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>US Stock Report - Performance Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+            color: white;
+            text-align: center;
+            padding: 40px 20px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 15px rgba(30, 64, 175, 0.3);
+        }
+        .header h1 { font-size: 28px; margin-bottom: 8px; }
+        .header p { font-size: 14px; opacity: 0.9; }
+        .header-nav {
+            margin-top: 12px;
+            display: flex;
+            justify-content: center;
+            gap: 16px;
+        }
+        .header-nav a {
+            color: rgba(255,255,255,0.85);
+            text-decoration: none;
+            font-size: 13px;
+            padding: 4px 12px;
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 16px;
+            transition: all 0.2s;
+        }
+        .header-nav a:hover {
+            background: rgba(255,255,255,0.15);
+            color: white;
+        }
+
+        /* Summary Cards */
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 30px;
+        }
+        .summary-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            text-align: center;
+        }
+        .summary-card .label { font-size: 13px; color: #6b7280; margin-bottom: 4px; }
+        .summary-card .value { font-size: 28px; font-weight: 700; color: #1f2937; }
+        .summary-card .sub { font-size: 12px; color: #9ca3af; margin-top: 4px; }
+
+        /* Method Cards */
+        .method-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 16px;
+            margin-bottom: 30px;
+        }
+        .method-card {
+            border-radius: 10px;
+            padding: 20px;
+            color: white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+        }
+        .method-card.enhanced { background: linear-gradient(135deg, #2563eb, #3b82f6); }
+        .method-card.kalman { background: linear-gradient(135deg, #7c3aed, #a78bfa); }
+        .method-card.longterm { background: linear-gradient(135deg, #059669, #34d399); }
+        .method-card h3 { font-size: 16px; margin-bottom: 12px; opacity: 0.95; }
+        .method-stat {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 0;
+            font-size: 14px;
+            border-bottom: 1px solid rgba(255,255,255,0.15);
+        }
+        .method-stat:last-child { border-bottom: none; }
+        .method-stat .val { font-weight: 600; }
+
+        /* Chart */
+        .chart-section {
+            background: white;
+            border-radius: 10px;
+            padding: 24px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        .chart-section h2 {
+            font-size: 18px;
+            color: #1f2937;
+            border-left: 4px solid #2563eb;
+            padding-left: 12px;
+            margin-bottom: 16px;
+        }
+
+        /* Filters */
+        .filters {
+            background: white;
+            border-radius: 10px;
+            padding: 16px 20px;
+            margin-bottom: 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .filters label { font-size: 13px; color: #6b7280; }
+        .filters select, .filters input {
+            padding: 6px 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 13px;
+            background: white;
+        }
+
+        /* Table */
+        .table-section {
+            background: white;
+            border-radius: 10px;
+            padding: 24px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            overflow-x: auto;
+        }
+        .table-section h2 {
+            font-size: 18px;
+            color: #1f2937;
+            border-left: 4px solid #2563eb;
+            padding-left: 12px;
+            margin-bottom: 16px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        th {
+            background: #f9fafb;
+            padding: 10px 8px;
+            text-align: left;
+            font-weight: 600;
+            color: #374151;
+            border-bottom: 2px solid #e5e7eb;
+            white-space: nowrap;
+        }
+        td {
+            padding: 10px 8px;
+            border-bottom: 1px solid #f3f4f6;
+            white-space: nowrap;
+        }
+        tr:hover td { background: #f9fafb; }
+
+        /* Badges */
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .badge-win { background: #dcfce7; color: #166534; }
+        .badge-loss { background: #fee2e2; color: #991b1b; }
+        .badge-pending { background: #f3f4f6; color: #6b7280; }
+        .badge-expired-profit { background: #fef9c3; color: #854d0e; }
+        .badge-expired-loss { background: #fef9c3; color: #92400e; }
+        .badge-method {
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .badge-enhanced { background: #dbeafe; color: #1e40af; }
+        .badge-kalman { background: #ede9fe; color: #5b21b6; }
+        .badge-longterm { background: #d1fae5; color: #065f46; }
+        .badge-legacy { background: #f3f4f6; color: #374151; }
+
+        .return-positive { color: #16a34a; font-weight: 600; }
+        .return-negative { color: #dc2626; font-weight: 600; }
+
+        .no-data {
+            text-align: center;
+            padding: 60px 20px;
+            color: #9ca3af;
+            font-size: 16px;
+        }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            padding: 20px;
+            font-size: 12px;
+            color: #9ca3af;
+        }
+        .footer a { color: #6b7280; text-decoration: none; }
+        .footer a:hover { text-decoration: underline; }
+
+        @media (max-width: 768px) {
+            .container { padding: 12px; }
+            .header { padding: 24px 16px; }
+            .header h1 { font-size: 22px; }
+            .summary-grid { grid-template-columns: repeat(2, 1fr); }
+            .method-grid { grid-template-columns: 1fr; }
+            .filters { flex-direction: column; }
+            table { font-size: 12px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Performance Dashboard</h1>
+            <p>US Stock Report 추천 종목 성과 추적</p>
+            <div class="header-nav">
+                <a href="index.html">지표 설명</a>
+            </div>
+        </div>
+
+        <div id="loading" class="no-data">데이터 로딩 중...</div>
+        <div id="no-data" class="no-data" style="display:none;">
+            아직 추적 데이터가 없습니다. 리포트가 실행되면 자동으로 기록됩니다.
+        </div>
+
+        <div id="dashboard" style="display:none;">
+            <!-- Summary Cards -->
+            <div class="summary-grid" id="summary-cards"></div>
+
+            <!-- Method Cards -->
+            <div class="method-grid" id="method-cards"></div>
+
+            <!-- Chart -->
+            <div class="chart-section">
+                <h2>누적 수익률</h2>
+                <canvas id="cumulative-chart" height="80"></canvas>
+            </div>
+
+            <!-- Filters -->
+            <div class="filters">
+                <label>방식:</label>
+                <select id="filter-method">
+                    <option value="all">전체</option>
+                    <option value="Enhanced">Enhanced</option>
+                    <option value="Kalman">Kalman</option>
+                    <option value="Long-term">Long-term</option>
+                    <option value="Legacy">Legacy</option>
+                </select>
+                <label>결과:</label>
+                <select id="filter-outcome">
+                    <option value="all">전체</option>
+                    <option value="win">Win</option>
+                    <option value="loss">Loss</option>
+                    <option value="pending">Pending</option>
+                    <option value="expired_profit">Expired (Profit)</option>
+                    <option value="expired_loss">Expired (Loss)</option>
+                </select>
+                <label>기간:</label>
+                <select id="filter-period">
+                    <option value="all">전체</option>
+                    <option value="7">최근 7일</option>
+                    <option value="30">최근 30일</option>
+                    <option value="60">최근 60일</option>
+                </select>
+            </div>
+
+            <!-- History Table -->
+            <div class="table-section">
+                <h2>추천 기록</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>날짜</th>
+                            <th>종목</th>
+                            <th>방식</th>
+                            <th>점수</th>
+                            <th>진입가</th>
+                            <th>목표가</th>
+                            <th>손절가</th>
+                            <th>청산가</th>
+                            <th>수익률</th>
+                            <th>결과</th>
+                        </tr>
+                    </thead>
+                    <tbody id="history-body"></tbody>
+                </table>
+                <div id="table-empty" class="no-data" style="display:none; padding: 30px;">
+                    필터 조건에 맞는 기록이 없습니다.
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <a href="index.html">기술적 지표 설명</a> |
+            본 대시보드는 과거 성과를 보여주며, 미래 수익을 보장하지 않습니다.
+        </div>
+    </div>
+
+    <script>
+    (async function() {
+        const loadingEl = document.getElementById('loading');
+        const noDataEl = document.getElementById('no-data');
+        const dashboardEl = document.getElementById('dashboard');
+
+        let recommendations = [];
+        let summary = {};
+
+        try {
+            const [recRes, sumRes] = await Promise.all([
+                fetch('data/recommendations.json').then(r => r.ok ? r.json() : []),
+                fetch('data/summary.json').then(r => r.ok ? r.json() : {}),
+            ]);
+            recommendations = recRes;
+            summary = sumRes;
+        } catch (e) {
+            loadingEl.style.display = 'none';
+            noDataEl.style.display = 'block';
+            return;
+        }
+
+        loadingEl.style.display = 'none';
+
+        if (!recommendations.length) {
+            noDataEl.style.display = 'block';
+            return;
+        }
+
+        dashboardEl.style.display = 'block';
+
+        // ---- Summary Cards ----
+        const overall = summary.overall || {};
+        const summaryCards = document.getElementById('summary-cards');
+        const cards = [
+            { label: '총 추천', value: summary.total_recommendations || 0, sub: `평가 완료: ${summary.evaluated_count || 0}` },
+            { label: '승률', value: `${overall.win_rate || 0}%`, sub: `${overall.win_count || 0}승 / ${overall.loss_count || 0}패` },
+            { label: '평균 수익률', value: `${overall.avg_return >= 0 ? '+' : ''}${overall.avg_return || 0}%`, sub: `최고 ${overall.best_return || 0}% / 최저 ${overall.worst_return || 0}%` },
+            { label: 'Profit Factor', value: overall.profit_factor || 0, sub: `연승 ${overall.win_streak || 0} / 연패 ${overall.loss_streak || 0}` },
+        ];
+        summaryCards.innerHTML = cards.map(c => `
+            <div class="summary-card">
+                <div class="label">${c.label}</div>
+                <div class="value">${c.value}</div>
+                <div class="sub">${c.sub}</div>
+            </div>
+        `).join('');
+
+        // ---- Method Cards ----
+        const methodCards = document.getElementById('method-cards');
+        const methods = [
+            { key: 'Enhanced', cls: 'enhanced', name: 'Enhanced (단기)' },
+            { key: 'Kalman', cls: 'kalman', name: 'Kalman (단기)' },
+            { key: 'Long-term', cls: 'longterm', name: 'Long-term (장기)' },
+        ];
+        methodCards.innerHTML = methods.map(m => {
+            const s = (summary.by_method || {})[m.key] || {};
+            if (!s.count) return '';
+            return `
+                <div class="method-card ${m.cls}">
+                    <h3>${m.name}</h3>
+                    <div class="method-stat"><span>추천 수</span><span class="val">${s.count}</span></div>
+                    <div class="method-stat"><span>승률</span><span class="val">${s.win_rate}%</span></div>
+                    <div class="method-stat"><span>평균 수익률</span><span class="val">${s.avg_return >= 0 ? '+' : ''}${s.avg_return}%</span></div>
+                    <div class="method-stat"><span>누적 수익률</span><span class="val">${s.total_return >= 0 ? '+' : ''}${s.total_return}%</span></div>
+                    <div class="method-stat"><span>Profit Factor</span><span class="val">${s.profit_factor}</span></div>
+                </div>
+            `;
+        }).join('');
+
+        // ---- Cumulative Chart ----
+        const cumData = summary.cumulative_returns || [];
+        if (cumData.length > 0) {
+            const ctx = document.getElementById('cumulative-chart').getContext('2d');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: cumData.map(d => d.date),
+                    datasets: [{
+                        label: '누적 수익률 (%)',
+                        data: cumData.map(d => d.cumulative_return),
+                        borderColor: '#2563eb',
+                        backgroundColor: 'rgba(37, 99, 235, 0.08)',
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 3,
+                        pointBackgroundColor: '#2563eb',
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: ctx => `${ctx.parsed.y >= 0 ? '+' : ''}${ctx.parsed.y}%`
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            ticks: { callback: v => v + '%' },
+                            grid: { color: '#f3f4f6' }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { maxTicksLimit: 10 }
+                        }
+                    }
+                }
+            });
+        }
+
+        // ---- Table ----
+        function renderTable() {
+            const method = document.getElementById('filter-method').value;
+            const outcome = document.getElementById('filter-outcome').value;
+            const period = document.getElementById('filter-period').value;
+
+            let filtered = [...recommendations];
+
+            if (method !== 'all') filtered = filtered.filter(r => r.method === method);
+            if (outcome !== 'all') filtered = filtered.filter(r => r.outcome === outcome);
+            if (period !== 'all') {
+                const cutoff = new Date();
+                cutoff.setDate(cutoff.getDate() - parseInt(period));
+                const cutoffStr = cutoff.toISOString().slice(0, 10);
+                filtered = filtered.filter(r => r.date >= cutoffStr);
+            }
+
+            const tbody = document.getElementById('history-body');
+            const emptyEl = document.getElementById('table-empty');
+
+            if (!filtered.length) {
+                tbody.innerHTML = '';
+                emptyEl.style.display = 'block';
+                return;
+            }
+            emptyEl.style.display = 'none';
+
+            tbody.innerHTML = filtered.map(r => {
+                const methodCls = {
+                    Enhanced: 'badge-enhanced',
+                    Kalman: 'badge-kalman',
+                    'Long-term': 'badge-longterm',
+                    Legacy: 'badge-legacy',
+                }[r.method] || 'badge-legacy';
+
+                const outcomeCls = {
+                    win: 'badge-win',
+                    loss: 'badge-loss',
+                    pending: 'badge-pending',
+                    expired_profit: 'badge-expired-profit',
+                    expired_loss: 'badge-expired-loss',
+                }[r.outcome] || 'badge-pending';
+
+                const outcomeLabel = {
+                    win: 'Win',
+                    loss: 'Loss',
+                    pending: 'Pending',
+                    expired_profit: 'Expired+',
+                    expired_loss: 'Expired-',
+                }[r.outcome] || r.outcome;
+
+                const retClass = r.return_pct > 0 ? 'return-positive' : r.return_pct < 0 ? 'return-negative' : '';
+                const retStr = r.return_pct != null ? `${r.return_pct >= 0 ? '+' : ''}${r.return_pct}%` : '-';
+
+                return `<tr>
+                    <td>${r.date}</td>
+                    <td><strong>${r.ticker}</strong></td>
+                    <td><span class="badge badge-method ${methodCls}">${r.method}</span></td>
+                    <td>${r.score != null ? r.score : '-'}</td>
+                    <td>$${r.entry_price}</td>
+                    <td>${r.target_price ? '$' + r.target_price : '-'}</td>
+                    <td>${r.stop_loss ? '$' + r.stop_loss : '-'}</td>
+                    <td>${r.exit_price ? '$' + r.exit_price : '-'}</td>
+                    <td class="${retClass}">${retStr}</td>
+                    <td><span class="badge ${outcomeCls}">${outcomeLabel}</span></td>
+                </tr>`;
+            }).join('');
+        }
+
+        document.getElementById('filter-method').addEventListener('change', renderTable);
+        document.getElementById('filter-outcome').addEventListener('change', renderTable);
+        document.getElementById('filter-period').addEventListener('change', renderTable);
+
+        renderTable();
+    })();
+    </script>
+</body>
+</html>

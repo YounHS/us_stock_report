@@ -15,6 +15,7 @@ S&P 500 기반 미국 주식 시장 일일 분석 리포트를 자동 생성하�
 - **뉴스 및 캘린더**: 핫 종목 뉴스, 경제 캘린더, 실적 발표 일정
 - **프리마켓 리포트**: 장 시작 전 시장 지수/섹터 ETF 프리마켓 가격, 주요 변동 종목, 전일 추천 종목 현황 분석
 - **개장 급등 추천**: S&P 500 전체 배치 스캔으로 PM 상승 종목 추출 → 프리마켓 모멘텀 + 뉴스 촉매 + 기술적 돌파 기반 인트라데이 추천 Top 3 (ATR 기반 동적 목표가/손절가, 보유 30분~1시간, 종목 유형 제한 없음)
+- **성과 추적 대시보드**: 추천 종목의 실제 성과(win/loss/expired)를 자동 평가하여 JSON으로 기록, GitHub Pages 대시보드에서 승률, 평균 수익률, 방식별 비교, 누적 수익률 차트 제공
 
 ## 프로젝트 구조
 
@@ -46,8 +47,16 @@ us_stock_report/
 │       └── premarket_report.html # 프리마켓 리포트 HTML 템플릿
 ├── notification/
 │   └── slack_sender.py          # Slack 발송 (요약 메시지 + PDF 리포트)
+├── tracking/
+│   ├── recorder.py              # 추천 종목 기록 (JSON)
+│   ├── evaluator.py             # 성과 평가 (yfinance 가격 조회)
+│   └── summary.py               # 통계 요약 생성
 ├── docs/
-│   └── index.html               # 기술적 지표 설명 페이지 (GitHub Pages)
+│   ├── index.html               # 기술적 지표 설명 페이지 (GitHub Pages)
+│   ├── dashboard.html           # 성과 추적 대시보드 (GitHub Pages)
+│   └── data/                    # 추적 데이터 (GitHub Actions 자동 커밋)
+│       ├── recommendations.json # 추천 기록 + 평가 결과
+│       └── summary.json         # 통계 요약 (대시보드용)
 ├── .github/workflows/
 │   ├── run_main.yml             # 일일 리포트 GitHub Actions 스케줄링
 │   └── run_premarket.yml        # 프리마켓 리포트 GitHub Actions 스케줄링
@@ -137,6 +146,15 @@ CYCLE_W_RISK=10                  # 위험 선호도 가중치 (기본: 10)
 CYCLE_W_CREDIT=5                 # 신용 스프레드 가중치 (기본: 5)
 ```
 
+### 성과 추적 설정 (선택)
+
+추천 종목의 실제 성과를 자동 추적하여 대시보드에 표시합니다.
+
+```env
+TRACKING_RETENTION_DAYS=90       # 추적 데이터 보관 기간 (기본: 90일)
+TRACKING_LT_STOP_PCT=8.0        # 장기 추천 기본 손절 비율% (기본: 8.0)
+```
+
 ## 실행
 
 ```bash
@@ -167,7 +185,7 @@ python main_premarket.py --dry-run
 | 일일 리포트 | `run_main.yml` | 06:55 (UTC 21:55) | 시장 분석 + 추천 종목 |
 | 프리마켓 리포트 | `run_premarket.yml` | 21:00 (UTC 12:00) | 장 시작 전 프리마켓 분석 |
 
-일일 리포트 워크플로우에서 `actions/upload-artifact@v4`로 추천 종목 상태(`last_recommendations.json`)를 저장하고, 프리마켓 워크플로우에서 `actions/download-artifact@v4`로 다운로드하여 전일 추천 종목 현황을 표시합니다.
+일일 리포트 워크플로우에서 `actions/upload-artifact@v4`로 추천 종목 상태(`last_recommendations.json`)를 저장하고, 프리마켓 워크플로우에서 `actions/download-artifact@v4`로 다운로드하여 전일 추천 종목 현황을 표시합니다. 또한 성과 추적 데이터(`docs/data/`)를 `[skip ci]` 커밋으로 자동 푸시합니다.
 
 GitHub Repository에 Secrets를 등록해야 합니다:
 
@@ -237,6 +255,24 @@ GitHub Repository에 Secrets를 등록해야 합니다:
 
 > GitHub Pages 배포: repo Settings → Pages → Source를 `docs/` 폴더로 설정
 
+## 성과 추적 대시보드
+
+추천 종목의 실제 성과를 자동으로 추적합니다. 매일 리포트 실행 시:
+
+1. **이전 추천 평가** — 보유 기간이 경과한 pending 종목의 실제 가격을 조회하여 win/loss/expired 판정
+2. **오늘의 추천 기록** — 새 추천 종목을 진입가, 목표가, 손절가와 함께 기록
+3. **통계 요약 생성** — 승률, 평균 수익률, profit factor 등 통계 계산
+
+**[Performance Dashboard 보기](https://younhs.github.io/us_stock_report/dashboard.html)**
+
+대시보드 기능:
+- 전체 요약 카드 (총 추천, 승률, 평균 수익률, Profit Factor)
+- 방식별 비교 카드 (Enhanced / Kalman / Long-term)
+- 누적 수익률 라인 차트 (Chart.js)
+- 필터링 가능한 추천 기록 테이블 (방식, 결과, 기간)
+
+> 데이터는 GitHub Actions에서 `docs/data/` 폴더에 자동 커밋됩니다. 90일 보관 후 완료 항목은 자동 정리됩니다.
+
 ## 기술 스택
 
 - **Python 3.12**
@@ -249,3 +285,4 @@ GitHub Repository에 Secrets를 등록해야 합니다:
 - **slack-sdk** - Slack Bot 메시지/파일 발송
 - **Google Chrome (headless)** - HTML → PDF 변환
 - **fonts-noto-cjk** - PDF 한글 렌더링
+- **Chart.js** (CDN) - 성과 대시보드 누적 수익률 차트

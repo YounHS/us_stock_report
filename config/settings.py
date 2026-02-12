@@ -151,6 +151,11 @@ class AnalysisSettings(BaseSettings):
     cycle_w_credit: int = Field(default=5, alias="CYCLE_W_CREDIT")
 
 
+class TrackingSettings(BaseSettings):
+    retention_days: int = Field(default=90, alias="TRACKING_RETENTION_DAYS")
+    longterm_default_stop_pct: float = Field(default=8.0, alias="TRACKING_LT_STOP_PCT")
+
+
 class SlackSettings(BaseSettings):
     bot_token: str = Field(default="", alias="SLACK_BOT_TOKEN")
     channel: str = Field(default="", alias="SLACK_CHANNEL")
@@ -170,6 +175,7 @@ class Settings:
         self.analysis = AnalysisSettings()
         self.general = GeneralSettings()
         self.slack = SlackSettings()
+        self.tracking = TrackingSettings()
         self.base_dir = Path(__file__).parent.parent
 
 

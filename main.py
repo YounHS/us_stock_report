@@ -403,6 +403,34 @@ def main(dry_run: bool = False, test_slack: bool = False):
         except Exception as e:
             logger.warning(f"   추천 종목 저장 실패: {e}")
 
+        # 7-2. 추천 종목 성과 추적
+        try:
+            from tracking import RecommendationRecorder, OutcomeEvaluator, SummaryGenerator
+
+            # 7-2a. 이전 pending 추천 종목 평가 (먼저 실행)
+            logger.info("7-2a. 이전 추천 종목 성과 평가 중...")
+            evaluator = OutcomeEvaluator()
+            evaluated_count = evaluator.evaluate()
+            logger.info(f"   {evaluated_count}건 성과 평가 완료")
+
+            # 7-2b. 오늘의 추천 종목 기록
+            logger.info("7-2b. 오늘의 추천 종목 기록 중...")
+            recorder = RecommendationRecorder()
+            recorded_count = recorder.record(
+                recommendation=recommendation,
+                recommendation_kalman=recommendation_kalman,
+                longterm_recommendations=longterm_recommendations,
+            )
+            logger.info(f"   {recorded_count}건 기록 완료")
+
+            # 7-2c. 통계 요약 생성
+            logger.info("7-2c. 통계 요약 생성 중...")
+            summary_gen = SummaryGenerator()
+            summary_gen.generate()
+            logger.info("   통계 요약 생성 완료")
+        except Exception as e:
+            logger.warning(f"   추천 종목 성과 추적 실패 (리포트 발송 계속): {e}")
+
         # 8. Slack 발송
         if dry_run:
             logger.info("8. [DRY-RUN] Slack 발송 건너뜀")
