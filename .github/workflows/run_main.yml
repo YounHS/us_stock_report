@@ -8,6 +8,9 @@ on:
     - cron: '55 21 * * 1-5'
   workflow_dispatch: # 수동으로도 실행할 수 있게 버튼을 활성화합니다.
 
+permissions:
+  contents: write
+
 jobs:
   run-script:
     runs-on: ubuntu-latest
