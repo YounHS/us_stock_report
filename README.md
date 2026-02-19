@@ -16,6 +16,7 @@ S&P 500 기반 미국 주식 시장 일일 분석 리포트를 자동 생성하�
 - **프리마켓 리포트**: 장 시작 전 시장 지수/섹터 ETF 프리마켓 가격, 주요 변동 종목, 전일 추천 종목 현황 분석
 - **개장 급등 추천**: S&P 500 전체 배치 스캔으로 PM 상승 종목 추출 → 프리마켓 모멘텀 + 뉴스 촉매 + 기술적 돌파 기반 인트라데이 추천 Top 3 (ATR 기반 동적 목표가/손절가, 보유 30분~1시간, 종목 유형 제한 없음)
 - **성과 추적 대시보드**: 추천 종목의 실제 성과(win/loss/expired)를 자동 평가하여 JSON으로 기록, GitHub Pages 대시보드에서 승률, 평균 수익률, 방식별 비교, 누적 수익률 차트 제공
+- **파라미터 자동 튜닝**: 평가 완료된 추천 성과를 분석하여 각 방식(Enhanced/Kalman/Long-term/Opening Surge)의 scoring weights와 min_score threshold를 EMA 스무딩 기반으로 자동 조정. 다음 실행 시 튜닝된 가중치 적용 (closed-loop)
 
 ## 프로젝트 구조
 
@@ -51,12 +52,17 @@ us_stock_report/
 │   ├── recorder.py              # 추천 종목 기록 (JSON)
 │   ├── evaluator.py             # 성과 평가 (yfinance 가격 조회)
 │   └── summary.py               # 통계 요약 생성
+├── tuning/
+│   └── optimizer.py             # 파라미터 자동 튜닝 (가중치/임계값 조정)
+├── tests/
+│   └── test_optimizer.py        # 튜닝 모듈 단위 테스트
 ├── docs/
 │   ├── index.html               # 기술적 지표 설명 페이지 (GitHub Pages)
 │   ├── dashboard.html           # 성과 추적 대시보드 (GitHub Pages)
 │   └── data/                    # 추적 데이터 (GitHub Actions 자동 커밋)
 │       ├── recommendations.json # 추천 기록 + 평가 결과
-│       └── summary.json         # 통계 요약 (대시보드용)
+│       ├── summary.json         # 통계 요약 (대시보드용)
+│       └── tuned_params.json    # 자동 튜닝된 가중치/임계값
 ├── .github/workflows/
 │   ├── run_main.yml             # 일일 리포트 GitHub Actions 스케줄링
 │   └── run_premarket.yml        # 프리마켓 리포트 GitHub Actions 스케줄링
@@ -155,6 +161,20 @@ TRACKING_RETENTION_DAYS=90       # 추적 데이터 보관 기간 (기본: 90일
 TRACKING_LT_STOP_PCT=8.0        # 장기 추천 기본 손절 비율% (기본: 8.0)
 ```
 
+### 파라미터 자동 튜닝 설정 (선택)
+
+평가 완료된 추천 성과를 분석하여 scoring weights와 min_score를 자동 조정합니다.
+
+```env
+TUNING_ENABLED=true              # 튜닝 활성화 (기본: true)
+TUNING_SMOOTHING_ALPHA=0.3       # EMA 스무딩 계수 (기본: 0.3, 0=변경없음, 1=즉시반영)
+TUNING_WEIGHT_FLOOR=2.0          # 가중치 하한 (기본: 2.0)
+TUNING_WEIGHT_CEILING=30.0       # 가중치 상한 (기본: 30.0)
+TUNING_MIN_SAMPLES_SHORT=15      # Enhanced/Kalman 최소 샘플 수 (기본: 15)
+TUNING_MIN_SAMPLES_LONG=5        # Long-term 최소 샘플 수 (기본: 5)
+TUNING_MIN_SAMPLES_SURGE=10      # Opening Surge 최소 샘플 수 (기본: 10)
+```
+
 ## 실행
 
 ```bash
@@ -185,7 +205,7 @@ python main_premarket.py --dry-run
 | 일일 리포트 | `run_main.yml` | 06:55 (UTC 21:55) | 시장 분석 + 추천 종목 |
 | 프리마켓 리포트 | `run_premarket.yml` | 21:00 (UTC 12:00) | 장 시작 전 프리마켓 분석 |
 
-일일 리포트 워크플로우에서 `actions/upload-artifact@v4`로 추천 종목 상태(`last_recommendations.json`)를 저장하고, 프리마켓 워크플로우에서 `actions/download-artifact@v4`로 다운로드하여 전일 추천 종목 현황을 표시합니다. 또한 성과 추적 데이터(`docs/data/`)를 `[skip ci]` 커밋으로 자동 푸시합니다.
+일일 리포트 워크플로우에서 `actions/upload-artifact@v4`로 추천 종목 상태(`last_recommendations.json`)를 저장하고, 프리마켓 워크플로우에서 `actions/download-artifact@v4`로 다운로드하여 전일 추천 종목 현황을 표시합니다. 성과 추적 및 튜닝 데이터(`recommendations.json`, `summary.json`, `tuned_params.json`)를 `[skip ci]` 커밋으로 자동 푸시합니다. 프리마켓 워크플로우에서도 Opening Surge 추천 기록 후 `recommendations.json`을 자동 커밋합니다.
 
 GitHub Repository에 Secrets를 등록해야 합니다:
 
@@ -246,6 +266,7 @@ GitHub Repository에 Secrets를 등록해야 합니다:
 | **목표가/손절가** | 칼만+볼린저 블렌딩 / ATR 기반 | 칼만+볼린저 블렌딩 / ATR 기반 | — | ATR 기반 동적 (종목별 변동성 반영) |
 | **하드 필터** | 칼만 수익률 ≥ 10%, falling knife 제외, 최소 점수 점진적 하향(35→10) | 칼만 예측가 > 종가, 최소 점수 이상 | Kalman velocity > 0, RSI < 75 | ADX>30+bearish 제외, RSI>85 제외 |
 | **리포트** | 일일 리포트 | 일일 리포트 | 일일 리포트 | 프리마켓 리포트 |
+| **자동 튜닝** | 지원 (min_samples=15) | 지원 (Enhanced 가중치 맵 재사용) | 지원 (min_samples=5) | 지원 (min_samples=10) |
 
 ## 기술적 지표 설명
 
@@ -257,11 +278,16 @@ GitHub Repository에 Secrets를 등록해야 합니다:
 
 ## 성과 추적 대시보드
 
-추천 종목의 실제 성과를 자동으로 추적합니다. 매일 리포트 실행 시:
+추천 종목의 실제 성과를 자동으로 추적하고, 평가 결과를 기반으로 파라미터를 자동 튜닝합니다.
 
-1. **이전 추천 평가** — 보유 기간이 경과한 pending 종목의 실제 가격을 조회하여 win/loss/expired 판정
-2. **오늘의 추천 기록** — 새 추천 종목을 진입가, 목표가, 손절가와 함께 기록
+일일 리포트 (`main.py`) 실행 시:
+1. **이전 추천 평가** — 보유 기간이 경과한 pending 종목(Enhanced/Kalman/Long-term/Opening Surge)의 실제 가격을 조회하여 win/loss/expired 판정
+2. **오늘의 추천 기록** — 새 추천 종목을 진입가, 목표가, 손절가, `score_breakdown`과 함께 기록
 3. **통계 요약 생성** — 승률, 평균 수익률, profit factor 등 통계 계산
+4. **파라미터 자동 튜닝** — 평가 완료된 추천의 지표별 효과성(win-rate lift + return lift)을 분석하여 가중치/임계값 조정 → `tuned_params.json` 저장 → 다음 실행 시 적용
+
+프리마켓 리포트 (`main_premarket.py`) 실행 시:
+- **개장 급등 추천 기록** — Opening Surge 추천을 `recommendations.json`에 기록 (PM가격 기반, `holding_period_days=1`)
 
 **[Performance Dashboard 보기](https://younhs.github.io/us_stock_report/dashboard.html)**
 
@@ -272,6 +298,18 @@ GitHub Repository에 Secrets를 등록해야 합니다:
 - 필터링 가능한 추천 기록 테이블 (방식, 결과, 기간)
 
 > 데이터는 GitHub Actions에서 `docs/data/` 폴더에 자동 커밋됩니다. 90일 보관 후 완료 항목은 자동 정리됩니다.
+
+### 자동 튜닝 데이터 흐름
+
+```
+일일 (main.py, KST 06:55):
+  평가 → 기록 → 요약 → 튜닝 → 자동 커밋
+  (tuned_params.json → 다음 실행 시 signals.py가 로드)
+
+프리마켓 (main_premarket.py, KST 21:00):
+  리포트 생성 → Opening Surge 기록 → 자동 커밋
+  (tuned_params.json 로드 → 튜닝된 가중치로 추천 생성)
+```
 
 ## 기술 스택
 

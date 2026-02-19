@@ -1,5 +1,7 @@
 """매수 신호 종합 판별"""
 
+import json
+from pathlib import Path
 from typing import Dict, List, Optional
 from dataclasses import dataclass, field
 import logging
@@ -116,6 +118,32 @@ class SignalDetector:
         """
         self.analysis_results = analysis_results
         self.exclude_tickers = exclude_tickers or set()
+        self._tuned_params = self._load_tuned_params()
+
+    def _load_tuned_params(self) -> Dict:
+        """tuned_params.json 로드 (없거나 실패 시 빈 dict)"""
+        try:
+            tuned_file = Path("docs/data/tuned_params.json")
+            if tuned_file.exists():
+                with open(tuned_file) as f:
+                    return json.load(f)
+        except Exception:
+            pass
+        return {}
+
+    def _get_weight(self, method_key: str, setting_attr: str) -> float:
+        """튜닝된 가중치 반환 (tuned_params → settings 기본값 폴백)"""
+        tuned = self._tuned_params.get(method_key, {}).get("weights", {})
+        if setting_attr in tuned:
+            return tuned[setting_attr]
+        return float(getattr(settings.analysis, setting_attr))
+
+    def _get_min_score(self, method_key: str, setting_attr: str) -> int:
+        """튜닝된 min_score 반환 (tuned_params → settings 기본값 폴백)"""
+        tuned = self._tuned_params.get(method_key, {})
+        if "min_score" in tuned:
+            return tuned["min_score"]
+        return getattr(settings.analysis, setting_attr)
 
     def detect_rsi_oversold(self) -> List[BuySignal]:
         """RSI 과매도 종목 감지"""
@@ -417,13 +445,13 @@ class SignalDetector:
     # Enhanced Scoring System
     # ========================
 
-    def _calculate_rsi_score(self, analysis: Dict) -> int:
+    def _calculate_rsi_score(self, analysis: Dict, method: str = "Enhanced") -> int:
         """RSI 점수 계산 (최대 weight_rsi점)"""
         rsi = analysis.get("rsi")
         if not rsi:
             return 0
 
-        weight = settings.analysis.weight_rsi
+        weight = self._get_weight(method, "weight_rsi")
         if rsi.is_oversold:
             if rsi.value < 20:
                 return weight  # 극심한 과매도
@@ -433,7 +461,7 @@ class SignalDetector:
                 return int(weight * 0.6)
         return 0
 
-    def _calculate_volume_score(self, analysis: Dict) -> int:
+    def _calculate_volume_score(self, analysis: Dict, method: str = "Enhanced") -> int:
         """거래량 점수 계산 (최대 weight_volume점)"""
         volume = analysis.get("volume")
         rsi = analysis.get("rsi")
@@ -441,7 +469,7 @@ class SignalDetector:
         if not volume:
             return 0
 
-        weight = settings.analysis.weight_volume
+        weight = self._get_weight(method, "weight_volume")
 
         # 과매도 + 거래량 급증 = 바닥 신호 확인
         if rsi and rsi.is_oversold and volume.is_volume_spike:
@@ -456,13 +484,13 @@ class SignalDetector:
 
         return 0
 
-    def _calculate_adx_score(self, analysis: Dict) -> int:
+    def _calculate_adx_score(self, analysis: Dict, method: str = "Enhanced") -> int:
         """ADX 점수 계산 (최대 weight_adx점 또는 페널티)"""
         adx = analysis.get("adx")
         if not adx:
             return 0
 
-        weight = settings.analysis.weight_adx
+        weight = self._get_weight(method, "weight_adx")
 
         # 약한 추세에서 평균회귀 유효 (점수 부여)
         if adx.trend_strength == "weak":
@@ -476,13 +504,13 @@ class SignalDetector:
 
         return 0
 
-    def _calculate_macd_score(self, analysis: Dict) -> int:
+    def _calculate_macd_score(self, analysis: Dict, method: str = "Enhanced") -> int:
         """MACD 점수 계산 (최대 weight_macd점)"""
         macd = analysis.get("macd")
         if not macd:
             return 0
 
-        weight = settings.analysis.weight_macd
+        weight = self._get_weight(method, "weight_macd")
 
         if macd.is_bullish_cross:
             # 골든크로스 발생
@@ -497,13 +525,13 @@ class SignalDetector:
 
         return 0
 
-    def _calculate_bollinger_score(self, analysis: Dict) -> int:
+    def _calculate_bollinger_score(self, analysis: Dict, method: str = "Enhanced") -> int:
         """볼린저밴드 점수 계산 (최대 weight_bollinger점)"""
         bollinger = analysis.get("bollinger")
         if not bollinger:
             return 0
 
-        weight = settings.analysis.weight_bollinger
+        weight = self._get_weight(method, "weight_bollinger")
 
         if bollinger.is_near_lower_sigma:
             # z-score에 따른 점수 차등
@@ -516,13 +544,13 @@ class SignalDetector:
 
         return 0
 
-    def _calculate_relative_strength_score(self, analysis: Dict) -> int:
+    def _calculate_relative_strength_score(self, analysis: Dict, method: str = "Enhanced") -> int:
         """상대강도 점수 계산 (최대 weight_relative_strength점)"""
         rs = analysis.get("relative_strength")
         if not rs:
             return 0
 
-        weight = settings.analysis.weight_relative_strength
+        weight = self._get_weight(method, "weight_relative_strength")
 
         if rs.is_outperforming:
             # 시장 대비 아웃퍼폼
@@ -533,13 +561,13 @@ class SignalDetector:
 
         return 0
 
-    def _calculate_week52_score(self, analysis: Dict) -> int:
+    def _calculate_week52_score(self, analysis: Dict, method: str = "Enhanced") -> int:
         """52주 위치 점수 계산 (최대 weight_52week점)"""
         week52 = analysis.get("week52")
         if not week52:
             return 0
 
-        weight = settings.analysis.weight_52week
+        weight = self._get_weight(method, "weight_52week")
 
         if week52.is_near_low:
             # 52주 저점 근처
@@ -550,7 +578,7 @@ class SignalDetector:
 
         return 0
 
-    def _calculate_obv_score(self, analysis: Dict) -> int:
+    def _calculate_obv_score(self, analysis: Dict, method: str = "Enhanced") -> int:
         """OBV 점수 계산 (최대 weight_obv점)"""
         obv = analysis.get("obv")
         rsi = analysis.get("rsi")
@@ -558,7 +586,7 @@ class SignalDetector:
         if not obv:
             return 0
 
-        weight = settings.analysis.weight_obv
+        weight = self._get_weight(method, "weight_obv")
 
         # Bullish divergence (가격 하락 중 OBV 상승) = 강한 매집 신호
         if obv.is_bullish_divergence:
@@ -576,7 +604,7 @@ class SignalDetector:
 
         return 0
 
-    def _calculate_stochastic_score(self, analysis: Dict) -> int:
+    def _calculate_stochastic_score(self, analysis: Dict, method: str = "Enhanced") -> int:
         """Stochastic 점수 계산 (최대 weight_stochastic점)"""
         stochastic = analysis.get("stochastic")
         rsi = analysis.get("rsi")
@@ -584,7 +612,7 @@ class SignalDetector:
         if not stochastic:
             return 0
 
-        weight = settings.analysis.weight_stochastic
+        weight = self._get_weight(method, "weight_stochastic")
 
         # RSI + Stochastic 동시 과매도 = 강한 반등 신호
         if stochastic.is_oversold and rsi and rsi.is_oversold:
@@ -602,7 +630,7 @@ class SignalDetector:
 
         return 0
 
-    def _calculate_squeeze_score(self, analysis: Dict) -> int:
+    def _calculate_squeeze_score(self, analysis: Dict, method: str = "Enhanced") -> int:
         """Squeeze 점수 계산 (최대 weight_squeeze점)"""
         squeeze = analysis.get("squeeze")
         rsi = analysis.get("rsi")
@@ -610,7 +638,7 @@ class SignalDetector:
         if not squeeze:
             return 0
 
-        weight = settings.analysis.weight_squeeze
+        weight = self._get_weight(method, "weight_squeeze")
 
         # Squeeze ON + 상승 모멘텀 = 곧 상방 돌파 예상
         if squeeze.is_squeeze_on and squeeze.momentum > 0:
@@ -719,7 +747,7 @@ class SignalDetector:
 
         # 2단계: 점수 기준 점진적 하향
         all_candidates.sort(key=lambda x: x[1], reverse=True)
-        original_min = settings.analysis.min_recommendation_score
+        original_min = self._get_min_score("Enhanced", "min_recommendation_score")
         score_step = 5
         score_floor = 10
 
@@ -930,24 +958,24 @@ class SignalDetector:
             if not kalman or not close or kalman.predicted_price <= close:
                 continue
 
-            # 점수 계산 (기존 Enhanced와 동일)
+            # 점수 계산 (Kalman 방식 가중치 적용)
             score_breakdown = ScoreBreakdown(
-                rsi_score=self._calculate_rsi_score(analysis),
-                volume_score=self._calculate_volume_score(analysis),
-                adx_score=self._calculate_adx_score(analysis),
-                macd_score=self._calculate_macd_score(analysis),
-                bollinger_score=self._calculate_bollinger_score(analysis),
-                relative_strength_score=self._calculate_relative_strength_score(analysis),
-                week52_score=self._calculate_week52_score(analysis),
-                obv_score=self._calculate_obv_score(analysis),
-                stochastic_score=self._calculate_stochastic_score(analysis),
-                squeeze_score=self._calculate_squeeze_score(analysis),
+                rsi_score=self._calculate_rsi_score(analysis, "Kalman"),
+                volume_score=self._calculate_volume_score(analysis, "Kalman"),
+                adx_score=self._calculate_adx_score(analysis, "Kalman"),
+                macd_score=self._calculate_macd_score(analysis, "Kalman"),
+                bollinger_score=self._calculate_bollinger_score(analysis, "Kalman"),
+                relative_strength_score=self._calculate_relative_strength_score(analysis, "Kalman"),
+                week52_score=self._calculate_week52_score(analysis, "Kalman"),
+                obv_score=self._calculate_obv_score(analysis, "Kalman"),
+                stochastic_score=self._calculate_stochastic_score(analysis, "Kalman"),
+                squeeze_score=self._calculate_squeeze_score(analysis, "Kalman"),
             )
 
             total_score = score_breakdown.total
 
             # 최소 점수 미달 시 스킵
-            if total_score < settings.analysis.min_recommendation_score:
+            if total_score < self._get_min_score("Kalman", "min_recommendation_score"):
                 continue
 
             # 필터링 조건 체크
@@ -1159,7 +1187,7 @@ class SignalDetector:
         if not rsi:
             return 0
 
-        weight = settings.analysis.longterm_weight_rsi
+        weight = self._get_weight("Long-term", "longterm_weight_rsi")
         v = rsi.value
 
         if 45 <= v <= 60:
@@ -1176,7 +1204,7 @@ class SignalDetector:
         if not macd:
             return 0
 
-        weight = settings.analysis.longterm_weight_macd
+        weight = self._get_weight("Long-term", "longterm_weight_macd")
         score = 0
 
         if macd.macd_line > macd.signal_line:
@@ -1192,7 +1220,7 @@ class SignalDetector:
         if not bollinger:
             return 0
 
-        weight = settings.analysis.longterm_weight_bollinger
+        weight = self._get_weight("Long-term", "longterm_weight_bollinger")
         z = bollinger.z_score
 
         if 0.3 <= z <= 1.0:
@@ -1209,7 +1237,7 @@ class SignalDetector:
         if not volume:
             return 0
 
-        weight = settings.analysis.longterm_weight_volume
+        weight = self._get_weight("Long-term", "longterm_weight_volume")
         ratio = volume.volume_ratio
 
         if ratio >= 1.5:
@@ -1226,7 +1254,7 @@ class SignalDetector:
         if not adx:
             return 0
 
-        weight = settings.analysis.longterm_weight_adx
+        weight = self._get_weight("Long-term", "longterm_weight_adx")
 
         if adx.trend_direction == "bullish":
             if adx.adx >= 30:
@@ -1246,7 +1274,7 @@ class SignalDetector:
         if not rs:
             return 0
 
-        weight = settings.analysis.longterm_weight_relative_strength
+        weight = self._get_weight("Long-term", "longterm_weight_relative_strength")
 
         if rs.rs_20d > 5:
             return weight  # 강한 아웃퍼폼
@@ -1262,7 +1290,7 @@ class SignalDetector:
         if not week52:
             return 0
 
-        weight = settings.analysis.longterm_weight_week52
+        weight = self._get_weight("Long-term", "longterm_weight_week52")
         pos = week52.current_position_pct
 
         if 40 <= pos <= 70:
@@ -1280,7 +1308,7 @@ class SignalDetector:
         if not kalman or not close:
             return 0
 
-        weight = settings.analysis.longterm_weight_kalman
+        weight = self._get_weight("Long-term", "longterm_weight_kalman")
         velocity_pct = (kalman.trend_velocity / close) * 100
 
         if velocity_pct > 0.5:
@@ -1297,7 +1325,7 @@ class SignalDetector:
         if not obv:
             return 0
 
-        weight = settings.analysis.longterm_weight_obv
+        weight = self._get_weight("Long-term", "longterm_weight_obv")
 
         # 매집 구간 = 기관/세력 매수 중
         if obv.obv_trend == "accumulation":
@@ -1321,7 +1349,7 @@ class SignalDetector:
         if not stochastic:
             return 0
 
-        weight = settings.analysis.longterm_weight_stochastic
+        weight = self._get_weight("Long-term", "longterm_weight_stochastic")
         k = stochastic.k
 
         # 장기 투자에서는 50-70 구간이 건강한 상승 모멘텀
@@ -1343,7 +1371,7 @@ class SignalDetector:
         if not squeeze:
             return 0
 
-        weight = settings.analysis.longterm_weight_squeeze
+        weight = self._get_weight("Long-term", "longterm_weight_squeeze")
 
         # Squeeze 해제 직후 + 상승 모멘텀 = 추세 시작
         if not squeeze.is_squeeze_on and squeeze.momentum > 0:
@@ -1397,21 +1425,21 @@ class SignalDetector:
             total = (rsi_sc + macd_sc + bollinger_sc + volume_sc + adx_sc +
                      rs_sc + week52_sc + kalman_sc + obv_sc + stochastic_sc + squeeze_sc)
 
-            if total < settings.analysis.longterm_min_score:
+            if total < self._get_min_score("Long-term", "longterm_min_score"):
                 continue
 
             candidates.append((ticker, total, {
-                "rsi": rsi_sc,
-                "macd": macd_sc,
-                "bollinger": bollinger_sc,
-                "volume": volume_sc,
-                "adx": adx_sc,
-                "relative_strength": rs_sc,
-                "week52": week52_sc,
-                "kalman": kalman_sc,
-                "obv": obv_sc,
-                "stochastic": stochastic_sc,
-                "squeeze": squeeze_sc,
+                "rsi_score": rsi_sc,
+                "macd_score": macd_sc,
+                "bollinger_score": bollinger_sc,
+                "volume_score": volume_sc,
+                "adx_score": adx_sc,
+                "relative_strength_score": rs_sc,
+                "week52_score": week52_sc,
+                "kalman_score": kalman_sc,
+                "obv_score": obv_sc,
+                "stochastic_score": stochastic_sc,
+                "squeeze_score": squeeze_sc,
             }, analysis))
 
         # 점수 내림차순
@@ -1521,7 +1549,7 @@ class SignalDetector:
 
     def _surge_pm_momentum_score(self, pm_data) -> int:
         """PM 모멘텀 점수 (최대 surge_weight_pm_momentum점)"""
-        weight = settings.analysis.surge_weight_pm_momentum
+        weight = self._get_weight("Opening Surge", "surge_weight_pm_momentum")
         pct = pm_data.pre_market_change_pct or 0
 
         if pct >= 5.0:
@@ -1536,7 +1564,7 @@ class SignalDetector:
 
     def _surge_news_catalyst_score(self, sentiment) -> int:
         """뉴스 촉매 점수 (최대 surge_weight_news_catalyst점)"""
-        weight = settings.analysis.surge_weight_news_catalyst
+        weight = self._get_weight("Opening Surge", "surge_weight_news_catalyst")
 
         if not sentiment:
             return 0
@@ -1553,7 +1581,7 @@ class SignalDetector:
 
     def _surge_volume_score(self, analysis: Dict, pm_data) -> int:
         """거래량 급증 점수 (최대 surge_weight_volume점)"""
-        weight = settings.analysis.surge_weight_volume
+        weight = self._get_weight("Opening Surge", "surge_weight_volume")
 
         # PM 거래량 / 평균 거래량 비율
         pm_vol = pm_data.pre_market_volume
@@ -1577,7 +1605,7 @@ class SignalDetector:
 
     def _surge_gap_setup_score(self, analysis: Dict, pm_data) -> int:
         """갭 설정 점수 (최대 surge_weight_gap점)"""
-        weight = settings.analysis.surge_weight_gap
+        weight = self._get_weight("Opening Surge", "surge_weight_gap")
         score = 0
 
         pm_price = pm_data.pre_market_price
@@ -1598,7 +1626,7 @@ class SignalDetector:
 
     def _surge_squeeze_release_score(self, analysis: Dict) -> int:
         """Squeeze 해제 점수 (최대 surge_weight_squeeze점)"""
-        weight = settings.analysis.surge_weight_squeeze
+        weight = self._get_weight("Opening Surge", "surge_weight_squeeze")
         squeeze = analysis.get("squeeze")
         if not squeeze:
             return 0
@@ -1613,7 +1641,7 @@ class SignalDetector:
 
     def _surge_relative_strength_score(self, analysis: Dict) -> int:
         """상대강도 점수 (최대 surge_weight_relative_strength점)"""
-        weight = settings.analysis.surge_weight_relative_strength
+        weight = self._get_weight("Opening Surge", "surge_weight_relative_strength")
         rs = analysis.get("relative_strength")
         if not rs:
             return 0
@@ -1626,7 +1654,7 @@ class SignalDetector:
 
     def _surge_adx_score(self, analysis: Dict) -> int:
         """ADX 점수 (최대 surge_weight_adx점)"""
-        weight = settings.analysis.surge_weight_adx
+        weight = self._get_weight("Opening Surge", "surge_weight_adx")
         adx = analysis.get("adx")
         if not adx:
             return 0
@@ -1642,7 +1670,7 @@ class SignalDetector:
 
     def _surge_stochastic_score(self, analysis: Dict) -> int:
         """Stochastic 점수 (최대 surge_weight_stochastic점)"""
-        weight = settings.analysis.surge_weight_stochastic
+        weight = self._get_weight("Opening Surge", "surge_weight_stochastic")
         stochastic = analysis.get("stochastic")
         if not stochastic:
             return 0
@@ -1701,7 +1729,7 @@ class SignalDetector:
             )
 
             total = breakdown.total
-            if total < settings.analysis.surge_min_score:
+            if total < self._get_min_score("Opening Surge", "surge_min_score"):
                 continue
 
             candidates.append((ticker, total, breakdown, analysis, pm_data, sentiment))

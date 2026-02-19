@@ -151,6 +151,16 @@ class AnalysisSettings(BaseSettings):
     cycle_w_credit: int = Field(default=5, alias="CYCLE_W_CREDIT")
 
 
+class TuningSettings(BaseSettings):
+    enabled: bool = Field(default=True, alias="TUNING_ENABLED")
+    smoothing_alpha: float = Field(default=0.3, alias="TUNING_SMOOTHING_ALPHA")
+    weight_floor: float = Field(default=2.0, alias="TUNING_WEIGHT_FLOOR")
+    weight_ceiling: float = Field(default=30.0, alias="TUNING_WEIGHT_CEILING")
+    min_samples_shortterm: int = Field(default=15, alias="TUNING_MIN_SAMPLES_SHORT")
+    min_samples_longterm: int = Field(default=5, alias="TUNING_MIN_SAMPLES_LONG")
+    min_samples_surge: int = Field(default=10, alias="TUNING_MIN_SAMPLES_SURGE")
+
+
 class TrackingSettings(BaseSettings):
     retention_days: int = Field(default=90, alias="TRACKING_RETENTION_DAYS")
     longterm_default_stop_pct: float = Field(default=8.0, alias="TRACKING_LT_STOP_PCT")
@@ -176,6 +186,7 @@ class Settings:
         self.general = GeneralSettings()
         self.slack = SlackSettings()
         self.tracking = TrackingSettings()
+        self.tuning = TuningSettings()
         self.base_dir = Path(__file__).parent.parent
 
 

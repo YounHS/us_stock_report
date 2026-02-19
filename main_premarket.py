@@ -292,6 +292,15 @@ def main(dry_run: bool = False):
         report_path = report_gen.save_to_file(html_report)
         logger.info(f"   리포트 저장: {report_path}")
 
+        # 8-1. 개장 급등 추천 기록
+        try:
+            from tracking import RecommendationRecorder
+            recorder = RecommendationRecorder()
+            surge_count = recorder.record_surge(opening_surge_recommendations)
+            logger.info(f"   개장 급등 추천 {surge_count}건 기록 완료")
+        except Exception as e:
+            logger.warning(f"   개장 급등 추천 기록 실패: {e}")
+
         # 9. Slack 발송
         if dry_run:
             logger.info("9. [DRY-RUN] Slack 발송 건너뜀")

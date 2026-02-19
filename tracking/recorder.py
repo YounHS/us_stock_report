@@ -81,6 +81,80 @@ class RecommendationRecorder:
         logger.info(f"추천 종목 {len(new_entries)}개 기록 완료")
         return len(new_entries)
 
+    def record_surge(
+        self,
+        surge_recommendations: Optional[List[Dict]],
+    ) -> int:
+        """
+        개장 급등(Opening Surge) 추천 종목을 기록합니다.
+
+        Args:
+            surge_recommendations: get_opening_surge_recommendations() 결과
+
+        Returns:
+            새로 기록된 엔트리 수
+        """
+        if not surge_recommendations:
+            return 0
+
+        DATA_DIR.mkdir(parents=True, exist_ok=True)
+        today = datetime.now().strftime("%Y-%m-%d")
+        history = self._load_history()
+
+        new_entries = []
+        for rec in surge_recommendations:
+            entry = self._make_surge_entry(rec, today)
+            if entry:
+                new_entries.append(entry)
+
+        if not new_entries:
+            return 0
+
+        existing_ids = {e["id"] for e in history}
+        for entry in new_entries:
+            if entry["id"] in existing_ids:
+                history = [e for e in history if e["id"] != entry["id"]]
+            history.append(entry)
+
+        history = self._prune_old_entries(history)
+        history.sort(key=lambda x: x["date"], reverse=True)
+        self._save_history(history)
+        logger.info(f"개장 급등 추천 {len(new_entries)}개 기록 완료")
+        return len(new_entries)
+
+    def _make_surge_entry(self, rec: Dict, date_str: str) -> Optional[Dict]:
+        """Opening Surge 추천 dict를 트래킹 엔트리로 변환"""
+        ticker = rec.get("ticker")
+        if not ticker:
+            return None
+
+        pm_price = rec.get("pm_price")
+        if not pm_price:
+            return None
+
+        entry_id = f"{date_str}_{ticker}_Opening Surge"
+
+        return {
+            "id": entry_id,
+            "date": date_str,
+            "ticker": ticker,
+            "method": "Opening Surge",
+            "entry_price": round(pm_price, 2),
+            "target_price": round(rec["target_price"], 2) if rec.get("target_price") else None,
+            "stop_loss": round(rec["stop_loss"], 2) if rec.get("stop_loss") else None,
+            "score": rec.get("score"),
+            "holding_period_days": 1,
+            "holding_period_raw": rec.get("holding_period", "30분~1시간"),
+            "rsi": rec.get("rsi"),
+            "adx": rec.get("adx"),
+            "kalman_predicted_price": rec.get("kalman_predicted_price"),
+            "score_breakdown": rec.get("score_breakdown"),
+            "outcome": "pending",
+            "exit_price": None,
+            "exit_date": None,
+            "return_pct": None,
+        }
+
     def _make_entry(self, rec: Dict, method: str, date_str: str) -> Optional[Dict]:
         """추천 dict를 트래킹 엔트리로 변환"""
         ticker = rec.get("ticker")
@@ -120,6 +194,7 @@ class RecommendationRecorder:
             "rsi": rec.get("rsi"),
             "adx": rec.get("adx"),
             "kalman_predicted_price": rec.get("kalman_predicted_price"),
+            "score_breakdown": rec.get("score_breakdown"),
             # Outcome fields — filled by evaluator
             "outcome": "pending",
             "exit_price": None,

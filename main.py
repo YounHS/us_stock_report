@@ -428,6 +428,22 @@ def main(dry_run: bool = False, test_slack: bool = False):
             summary_gen = SummaryGenerator()
             summary_gen.generate()
             logger.info("   통계 요약 생성 완료")
+
+            # 7-2d. 파라미터 튜닝 (평가 결과 기반, 다음 실행부터 적용)
+            if settings.tuning.enabled:
+                try:
+                    from tuning import ParameterOptimizer
+                    logger.info("7-2d. 파라미터 자동 튜닝 중...")
+                    optimizer = ParameterOptimizer()
+                    tuning_result = optimizer.optimize()
+                    if tuning_result:
+                        for method in ["Enhanced", "Kalman", "Long-term", "Opening Surge"]:
+                            if method in tuning_result:
+                                m = tuning_result[method]
+                                logger.info(f"   {method}: 샘플 {m['samples_used']}건, min_score={m['min_score']}")
+                    logger.info("   파라미터 튜닝 완료")
+                except Exception as e:
+                    logger.warning(f"   파라미터 튜닝 실패 (리포트 발송 계속): {e}")
         except Exception as e:
             logger.warning(f"   추천 종목 성과 추적 실패 (리포트 발송 계속): {e}")
 

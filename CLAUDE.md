@@ -51,9 +51,9 @@ python main_premarket.py --dry-run    # 발송 없이 리포트만 생성
 
 ## Architecture
 
-데이터 흐름 (일일): `main.py` → 데이터 수집 → 기술적 분석 → 섹터 분석 → **경기 사이클 분석** → 신호 감지 → 캘린더/뉴스 수집 → 뉴스 감성 분석 → 리포트 생성(HTML) → PDF 변환 → 추천 종목 저장 → **성과 추적** (이전 추천 평가 → 오늘 추천 기록 → 통계 요약 생성) → Slack 발송
+데이터 흐름 (일일): `main.py` → 데이터 수집 → 기술적 분석 → 섹터 분석 → **경기 사이클 분석** → 신호 감지 (튜닝된 가중치 적용) → 캘린더/뉴스 수집 → 뉴스 감성 분석 → 리포트 생성(HTML) → PDF 변환 → 추천 종목 저장 → **성과 추적** (이전 추천 평가 → 오늘 추천 기록 → 통계 요약 생성 → **파라미터 튜닝**) → Slack 발송
 
-데이터 흐름 (프리마켓): `main_premarket.py` → 대상 종목 결정 → 전일 OHLCV 배치 수집 → 프리마켓 가격 개별 수집 → 전일 기술적 분석 → 뉴스/캘린더 수집 → 감성 분석 → S&P 500 PM gainer 배치 스캔(`scan_premarket_gainers`) → gainer 상세 분석 → 개장 급등 추천 → 프리마켓 HTML 리포트 → PDF → Slack 발송
+데이터 흐름 (프리마켓): `main_premarket.py` → 대상 종목 결정 → 전일 OHLCV 배치 수집 → 프리마켓 가격 개별 수집 → 전일 기술적 분석 (튜닝된 가중치 적용) → 뉴스/캘린더 수집 → 감성 분석 → S&P 500 PM gainer 배치 스캔(`scan_premarket_gainers`) → gainer 상세 분석 → 개장 급등 추천 → 프리마켓 HTML 리포트 → PDF → **개장 급등 추천 기록** → Slack 발송
 
 ### 핵심 모듈
 
@@ -62,7 +62,7 @@ python main_premarket.py --dry-run    # 발송 없이 리포트만 생성
 - **data/fetcher.py**: `yfinance`로 OHLCV 배치 다운로드. `StockDataFetcher.fetch_batch()` 사용
 - **data/calendar.py**: 경제 캘린더(`EconomicCalendar`) 및 실적 발표 일정(`EarningsCalendar`) 수집
 - **analysis/technical.py**: RSI, MACD, 볼린저밴드, ADX, ATR, 거래량, 상대강도, 52주 위치, 칼만 필터(단기/장기), OBV, Stochastic, TTM Squeeze 계산. 칼만 필터는 두 가지 메서드 제공: `calculate_kalman_filter()` (단기, 1-step 예측) / `calculate_kalman_filter_longterm()` (장기 전용, N-step 예측). 결과는 dataclass로 반환 (`RSIResult`, `MACDResult`, `BollingerResult`, `ADXResult`, `ATRResult`, `VolumeResult`, `RelativeStrengthResult`, `Week52Result`, `KalmanResult`, `OBVResult`, `StochasticResult`, `SqueezeResult`)
-- **analysis/signals.py**: `SignalDetector`가 분석 결과에서 매수 신호 감지. 네 가지 추천 방식 제공:
+- **analysis/signals.py**: `SignalDetector`가 분석 결과에서 매수 신호 감지. 초기화 시 `tuned_params.json`에서 튜닝된 가중치를 로드하여 기본값 대신 사용 (`_load_tuned_params()`, `_get_weight()`, `_get_min_score()`). 네 가지 추천 방식 제공:
   - `get_enhanced_recommendation()`: 가중치 점수 시스템 기반 단기 추천 (우선 사용)
   - `get_top_recommendation()`: 레거시 방식 (Enhanced 실패 시 폴백)
   - `get_kalman_recommendation()`: 칼만 예측가 > 현재가 필터 기반 추가 단기 추천 (기존 추천과 중복 제외)
@@ -76,9 +76,10 @@ python main_premarket.py --dry-run    # 발송 없이 리포트만 생성
 - **report/generator.py**: Jinja2로 `report/templates/daily_report.html` 렌더링. `BusinessCycleResult` → dict 변환 및 SVG 마커 좌표(cos/sin) 사전 계산
 - **report/premarket_generator.py**: Jinja2로 `report/templates/premarket_report.html` 렌더링. 프리마켓 전용 컨텍스트 (시장/섹터 PM 데이터, 변동 종목, 전일 추천 현황 등)
 - **notification/slack_sender.py**: Slack Bot Token 기반 메시지 + PDF 리포트 발송. 요약 메시지에 단기/칼만 추천 및 뉴스 감성 정보 포함. HTML→PDF 변환은 `google-chrome --headless --print-to-pdf` 사용
-- **tracking/recorder.py**: `RecommendationRecorder`가 매일 추천 종목(Enhanced/Kalman/Long-term)을 `docs/data/recommendations.json`에 기록. 복합 ID(`{date}_{ticker}_{method}`)로 중복 제거, `retention_days`(기본 90일) 초과 완료 항목 자동 정리. 한글 보유 기간 파싱("3-5일", "2-3주", "1-3개월", "30분~1시간" → 최대 거래일 수). Long-term 추천은 `target_price` 없으면 `kalman_predicted_price` 사용, `stop_loss` 없으면 진입가 × (1 - 8%) 사용
+- **tracking/recorder.py**: `RecommendationRecorder`가 매일 추천 종목(Enhanced/Kalman/Long-term/Opening Surge)을 `docs/data/recommendations.json`에 기록. 복합 ID(`{date}_{ticker}_{method}`)로 중복 제거, `retention_days`(기본 90일) 초과 완료 항목 자동 정리. 한글 보유 기간 파싱("3-5일", "2-3주", "1-3개월", "30분~1시간" → 최대 거래일 수). Long-term 추천은 `target_price` 없으면 `kalman_predicted_price` 사용, `stop_loss` 없으면 진입가 × (1 - 8%) 사용. `record_surge()` 메서드로 Opening Surge 추천 기록 (`entry_price`=PM가격, `holding_period_days`=1). 모든 추천에 `score_breakdown` (지표별 개별 점수) 저장하여 튜닝 데이터로 활용
 - **tracking/evaluator.py**: `OutcomeEvaluator`가 보유 기간 경과한 pending 항목을 `yf.download()` 배치로 평가. 일별 High/Low 순회: Low ≤ stop → "loss", High ≥ target → "win" (같은 날 둘 다 해당 시 stop 우선). 기간 만료 → 최종 종가 기준 "expired_profit" 또는 "expired_loss". 데이터 없는 티커 → "expired_loss" (return 0%)
 - **tracking/summary.py**: `SummaryGenerator`가 `recommendations.json`에서 통계를 계산하여 `docs/data/summary.json` 생성. 전체/방식별/30일 롤링 통계 (승률, 평균 수익률, best/worst, profit factor, 연승/연패), 누적 수익률 시계열 (차트용)
+- **tuning/optimizer.py**: `ParameterOptimizer`가 평가 완료된 추천 성과 데이터를 분석하여 각 방식의 scoring weights와 min_score를 자동 조정. 효과성(win-rate lift + return lift) 기반 가중치 제안 → EMA 스무딩(α=0.3) → 바운드(floor=2, ceiling=30) → 정규화(합=100). `docs/data/tuned_params.json`에 저장, 다음 실행 시 `signals.py`가 로드하여 사용. 지원 방식: Enhanced, Kalman (Enhanced 가중치 맵 재사용), Long-term, Opening Surge
 - **docs/dashboard.html**: 정적 HTML + Chart.js (CDN) 성과 대시보드. 요약 카드, 방식별 비교 카드 (Enhanced=파랑, Kalman=보라, Long-term=녹색), 누적 수익률 라인 차트, 필터 (방식/결과/기간), 추천 기록 테이블. `docs/data/` JSON을 클라이언트 사이드로 fetch
 
 ### 리포트 구성 (일일)
@@ -183,13 +184,14 @@ python main_premarket.py --dry-run    # 발송 없이 리포트만 생성
 
 ### 설정 구조
 
-`config/settings.py`의 `Settings` 클래스가 6개 설정 그룹 관리:
+`config/settings.py`의 `Settings` 클래스가 7개 설정 그룹 관리:
 - `settings.smtp`: SMTP 서버 정보 (레거시)
 - `settings.email`: 수신자, 제목 등 (레거시)
 - `settings.analysis`: 기술적 분석 파라미터
 - `settings.general`: 타임존, 로그 레벨 등
 - `settings.slack`: Slack Bot Token, 채널
 - `settings.tracking`: 성과 추적 설정 (`retention_days`=90, `longterm_default_stop_pct`=8.0)
+- `settings.tuning`: 파라미터 자동 튜닝 설정 (`enabled`=True, `smoothing_alpha`=0.3, `weight_floor`=2.0, `weight_ceiling`=30.0, `min_samples_shortterm`=15, `min_samples_longterm`=5, `min_samples_surge`=10)
 
 ### 리포트 템플릿 구조
 
@@ -280,9 +282,47 @@ business_cycle = {
 - URL: `https://younhs.github.io/us_stock_report/dashboard.html`
 - **`docs/data/recommendations.json`**: 추천 기록 (GitHub Actions에서 자동 커밋)
 - **`docs/data/summary.json`**: 통계 요약 (GitHub Actions에서 자동 커밋)
+- **`docs/data/tuned_params.json`**: 자동 튜닝된 가중치/임계값 (GitHub Actions에서 자동 커밋)
 - `docs/index.html` ↔ `docs/dashboard.html` 상호 링크
 - 데이터 보관 기간: 90일 (`.env`에서 `TRACKING_RETENTION_DAYS`로 변경 가능)
 - GitHub Actions 워크플로우에서 `[skip ci]` 커밋으로 `docs/data/` 자동 푸시 (재귀 트리거 방지)
+
+### 파라미터 자동 튜닝
+
+평가 완료된 추천 성과 데이터를 분석하여 각 방식의 scoring weights와 min_score threshold를 자동 조정하는 closed-loop 시스템입니다.
+
+**튜닝 알고리즘** (방식별):
+1. 완료된(non-pending) 추천 중 `score_breakdown`이 있는 항목 필터
+2. 샘플 수 < `min_samples` → 스킵 (Enhanced/Kalman=15, Long-term=5, Opening Surge=10)
+3. 각 지표별 효과성 계산: 중앙값 기준 high/low 그룹 분리 → win-rate lift(0.6) + return lift(0.4)
+4. 효과성 → 제안 가중치 변환 (양수 시프트 + 정규화)
+5. EMA 스무딩: `new = (1-α) * current + α * suggested`, α=0.3
+6. 바운드 적용: floor=2.0, ceiling=30.0
+7. 합계 100 정규화
+8. min_score: 승리/패배 평균 점수 가중 평균 → 스무딩 → [15, 60] 바운드
+
+**tuned_params.json 스키마**:
+```json
+{
+  "last_updated": "2026-02-19",
+  "Enhanced": {
+    "weights": {"weight_rsi": 16.2, "weight_volume": 9.1, ...},
+    "min_score": 33,
+    "samples_used": 45,
+    "effectiveness": {"rsi_score": 0.123, ...}
+  }
+}
+```
+
+**데이터 흐름**:
+- 일일 (`main.py`): evaluate → record → summary → **tune** → auto-commit (`recommendations.json`, `summary.json`, `tuned_params.json`)
+- 프리마켓 (`main_premarket.py`): generate report → **record surge** → auto-commit (`recommendations.json`)
+- 다음 실행 시 `signals.py`가 `tuned_params.json` 로드 → 튜닝된 가중치/임계값으로 추천 생성
+
+**단위 테스트**: `tests/test_optimizer.py` (14개 테스트)
+```bash
+python -m pytest tests/test_optimizer.py -v
+```
 
 ## 주의사항
 
@@ -299,5 +339,9 @@ business_cycle = {
 - **경기 사이클 데이터**: `^TNX`, `^IRX`, `^VIX`, `HYG`, `TLT`를 별도 `fetch_batch(include_spy=False)` 호출로 수집. S&P 500 `stock_data`와 분리하여 `SectorAnalyzer`/`TechnicalAnalyzer`가 순회 시 오염 방지. 분석 시 `{**stock_data, **cycle_data}` 병합하여 IWM/SPY도 사용
 - **사이클 SVG**: 인라인 SVG 사용 (외부 이미지 없음). Chrome headless PDF 변환 호환. Jinja2에 cos/sin 없으므로 generator.py에서 마커 좌표 사전 계산
 - **성과 추적 순서**: `main.py` step 7-2에서 반드시 evaluate → record → summary 순서 실행. 오늘의 추천을 먼저 기록하면 즉시 평가 대상이 될 수 있으므로 평가를 먼저 수행
-- **성과 추적 데이터**: `docs/data/recommendations.json`, `docs/data/summary.json`은 GitHub Actions에서 `[skip ci]` 커밋으로 자동 푸시. 로컬 `--dry-run` 시에도 파일 생성됨
+- **성과 추적 데이터**: `docs/data/recommendations.json`, `docs/data/summary.json`, `docs/data/tuned_params.json`은 GitHub Actions에서 `[skip ci]` 커밋으로 자동 푸시. 로컬 `--dry-run` 시에도 파일 생성됨
 - **Long-term 추천 목표가/손절가**: Long-term 추천은 `target_price`/`stop_loss` 필드가 없으므로 트래킹 시 `kalman_predicted_price`를 목표가로, 진입가 × (1 - `TRACKING_LT_STOP_PCT`/100)을 손절가로 사용
+- **파라미터 튜닝 순서**: `main.py` step 7-2에서 evaluate → record → summary → **tune** 순서. 오늘의 추천은 이전 튜닝 결과로 생성되고, 오늘의 평가 결과가 다음 실행의 가중치를 조정함
+- **튜닝 비활성화**: `.env`에서 `TUNING_ENABLED=false` 설정 시 튜닝 단계 스킵. `tuned_params.json`이 없으면 `signals.py`가 `settings.analysis` 기본값 사용
+- **Opening Surge 트래킹**: `main_premarket.py`에서 `record_surge()` 호출로 기록, `main.py`의 evaluator가 `holding_period_days=1` 기준 자동 평가 (calendar_days=2이므로 다음 영업일에 평가)
+- **score_breakdown 키 통일**: Enhanced/Kalman/Long-term 모두 `rsi_score`, `macd_score` 등 `_score` 접미사 사용. Opening Surge는 `pm_momentum`, `news_catalyst` 등 고유 키. `tuning/optimizer.py`의 `WEIGHT_MAPS`와 정확히 일치해야 함

@@ -1,0 +1,7 @@
+{
+  "customInstructions": "Regardless of the language I use to ask questions or execute commands (including English), always provide your explanations, code reviews, and summaries in Korean. Focus on being concise and technically accurate. UserPromptSubmit: Ensure this rule is applied to every interaction.",
+  "cli": {
+    "telemetry": true,
+    "theme": "dark"
+  }
+}

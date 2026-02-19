@@ -6,6 +6,9 @@ on:
     - cron: '0 12 * * 1-5'
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   run-premarket:
     runs-on: ubuntu-latest
@@ -44,3 +47,13 @@ jobs:
         SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
         SLACK_CHANNEL: ${{ secrets.SLACK_CHANNEL }}
       run: python main_premarket.py
+
+    - name: Commit surge tracking data
+      if: success()
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git pull --rebase origin main || true
+        git add docs/data/recommendations.json
+        git diff --cached --quiet || git commit -m "chore: update surge tracking data [skip ci]"
+        git push || { git pull --rebase origin main && git push; }
