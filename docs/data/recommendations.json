@@ -1,5 +1,34 @@
 [
   {
+    "id": "2026-02-19_XLE_Opening Surge",
+    "date": "2026-02-19",
+    "ticker": "XLE",
+    "method": "Opening Surge",
+    "entry_price": 55.51,
+    "target_price": 56.78,
+    "stop_loss": 54.88,
+    "score": 64.0,
+    "holding_period_days": 1,
+    "holding_period_raw": "30분~1시간",
+    "rsi": 69.8,
+    "adx": 59.0,
+    "kalman_predicted_price": null,
+    "score_breakdown": {
+      "pm_momentum": 20,
+      "news_catalyst": 14,
+      "volume_surge": 0,
+      "gap_setup": 5,
+      "squeeze_release": 10.0,
+      "relative_strength": 8.0,
+      "adx": 7.0,
+      "stochastic": 0
+    },
+    "outcome": "pending",
+    "exit_price": null,
+    "exit_date": null,
+    "return_pct": null
+  },
+  {
     "id": "2026-02-18_CCI_Long-term",
     "date": "2026-02-18",
     "ticker": "CCI",
