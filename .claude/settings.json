@@ -1,7 +1,15 @@
 {
-  "customInstructions": "Regardless of the language I use to ask questions or execute commands (including English), always provide your explanations, code reviews, and summaries in Korean. Focus on being concise and technically accurate. UserPromptSubmit: Ensure this rule is applied to every interaction.",
-  "cli": {
-    "telemetry": true,
-    "theme": "dark"
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '<system-reminder>Always respond in fluent Korean only, no matter what language the user asks in. Keep code, technical terms, variable names, and English words in English. Explain everything else in natural, idiomatic Korean. Never reply in English unless the user explicitly asks for English output.</system-reminder>'"
+          }
+        ]
+      }
+    ]
   }
 }
