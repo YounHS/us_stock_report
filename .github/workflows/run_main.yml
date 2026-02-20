@@ -61,7 +61,8 @@ jobs:
       run: |
         git config user.name "github-actions[bot]"
         git config user.email "github-actions[bot]@users.noreply.github.com"
-        git pull --rebase origin main || true
-        git add docs/data/recommendations.json docs/data/summary.json docs/data/tuned_params.json
+        git pull --rebase --autostash origin main
+        git add docs/data/recommendations.json docs/data/summary.json
+        [ -f docs/data/tuned_params.json ] && git add docs/data/tuned_params.json || true
         git diff --cached --quiet || git commit -m "chore: update tracking data [skip ci]"
-        git push || { git pull --rebase origin main && git push; }
+        git push || { git pull --rebase --autostash origin main && git push; }
