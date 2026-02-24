@@ -51,23 +51,27 @@ python main_premarket.py --dry-run    # 발송 없이 리포트만 생성
 
 ## Architecture
 
-데이터 흐름 (일일): `main.py` → 데이터 수집 → 기술적 분석 → 섹터 분석 → **경기 사이클 분석** → 신호 감지 (튜닝된 가중치 적용) → 캘린더/뉴스 수집 → 뉴스 감성 분석 → 리포트 생성(HTML) → PDF 변환 → 추천 종목 저장 → **성과 추적** (이전 추천 평가 → 오늘 추천 기록 → 통계 요약 생성 → **파라미터 튜닝**) → Slack 발송
+데이터 흐름 (일일): `main.py` → 데이터 수집 → 기술적 분석 → 섹터 분석 → **경기 사이클 분석** → 신호 감지 (튜닝된 가중치 적용) → **Ross Cameron 확장 스캔** (LEVERAGED_ETFS + ACTIVE_US_STOCKS 추가 수집·분석 → ~550개 유니버스로 RC 추천) → 캘린더/뉴스 수집 → 뉴스 감성 분석 → 리포트 생성(HTML) → PDF 변환 → 추천 종목 저장 → **성과 추적** (이전 추천 평가 → 오늘 추천 기록 → 통계 요약 생성 → **파라미터 튜닝**) → Slack 발송
 
-데이터 흐름 (프리마켓): `main_premarket.py` → 대상 종목 결정 → 전일 OHLCV 배치 수집 → 프리마켓 가격 개별 수집 → 전일 기술적 분석 (튜닝된 가중치 적용) → 뉴스/캘린더 수집 → 감성 분석 → S&P 500 PM gainer 배치 스캔(`scan_premarket_gainers`) → gainer 상세 분석 → 개장 급등 추천 → 프리마켓 HTML 리포트 → PDF → **개장 급등 추천 기록** → Slack 발송
+데이터 흐름 (프리마켓): `main_premarket.py` → 대상 종목 결정 → 전일 OHLCV 배치 수집 → 프리마켓 가격 개별 수집 → 전일 기술적 분석 (튜닝된 가중치 적용) → 뉴스/캘린더 수집 → 감성 분석 → S&P 500 PM gainer 배치 스캔(`scan_premarket_gainers`) → gainer 상세 분석 → 개장 급등 추천 → **Ross Cameron Watchlist** (LEVERAGED_ETFS + ACTIVE_US_STOCKS 추가 수집·분석 → ~550개 유니버스로 RC 추천) → 프리마켓 HTML 리포트 → PDF → **개장 급등 추천 기록** → Slack 발송
 
 ### 핵심 모듈
 
 - **config/settings.py**: Pydantic 기반 환경변수 관리. `settings` 싱글톤으로 전역 접근
-- **config/sp500_tickers.py**: Wikipedia에서 S&P 500 종목 스크래핑 (User-Agent 필수), 11개 GICS 섹터 매핑
+- **config/sp500_tickers.py**: Wikipedia에서 S&P 500 종목 스크래핑 (User-Agent 필수), 11개 GICS 섹터 매핑. 데이트레이딩 확장 종목 관리:
+  - `LEVERAGED_ETFS`: 인기 레버리지 ETF 32종 (TQQQ/SQQQ, SOXL/SOXS, UPRO/SPXS, TNA/TZA, LABU/LABD, FAS/FAZ, TECL/TECS, NUGT/DUST 등)
+  - `ACTIVE_US_STOCKS`: S&P 500 미편입 인기 미국 주식 17종 (MSTR, COIN, HOOD, SOFI, RIVN, MARA, RIOT, IONQ, GME 등)
+  - `get_extended_tickers()`: S&P 500 + LEVERAGED_ETFS + ACTIVE_US_STOCKS 합산 반환 (Ross Cameron 전략 스캔용, ~550개)
 - **data/fetcher.py**: `yfinance`로 OHLCV 배치 다운로드. `StockDataFetcher.fetch_batch()` 사용
 - **data/calendar.py**: 경제 캘린더(`EconomicCalendar`) 및 실적 발표 일정(`EarningsCalendar`) 수집
 - **analysis/technical.py**: RSI, MACD, 볼린저밴드, ADX, ATR, 거래량, 상대강도, 52주 위치, 칼만 필터(단기/장기), OBV, Stochastic, TTM Squeeze 계산. 칼만 필터는 두 가지 메서드 제공: `calculate_kalman_filter()` (단기, 1-step 예측) / `calculate_kalman_filter_longterm()` (장기 전용, N-step 예측). 결과는 dataclass로 반환 (`RSIResult`, `MACDResult`, `BollingerResult`, `ADXResult`, `ATRResult`, `VolumeResult`, `RelativeStrengthResult`, `Week52Result`, `KalmanResult`, `OBVResult`, `StochasticResult`, `SqueezeResult`)
-- **analysis/signals.py**: `SignalDetector`가 분석 결과에서 매수 신호 감지. 초기화 시 `tuned_params.json`에서 튜닝된 가중치를 로드하여 기본값 대신 사용 (`_load_tuned_params()`, `_get_weight()`, `_get_min_score()`). 네 가지 추천 방식 제공:
+- **analysis/signals.py**: `SignalDetector`가 분석 결과에서 매수 신호 감지. 초기화 시 `tuned_params.json`에서 튜닝된 가중치를 로드하여 기본값 대신 사용 (`_load_tuned_params()`, `_get_weight()`, `_get_min_score()`). 다섯 가지 추천 방식 제공:
   - `get_enhanced_recommendation()`: 가중치 점수 시스템 기반 단기 추천 (우선 사용)
   - `get_top_recommendation()`: 레거시 방식 (Enhanced 실패 시 폴백)
   - `get_kalman_recommendation()`: 칼만 예측가 > 현재가 필터 기반 추가 단기 추천 (기존 추천과 중복 제외)
   - `get_longterm_recommendations()`: 추세 추종 기반 장기 투자 추천 Top N
   - `get_opening_surge_recommendations()`: 프리마켓 모멘텀 + 뉴스 촉매 + 기술적 돌파 기반 개장 급등 추천 Top N
+  - `get_ross_cameron_recommendations(top_n=5)`: Ross Cameron Warrior Trading 전략 기반 추천. 하드 필터: RSI < 30 AND MACD 골든크로스(is_bullish_cross=True) AND MACD 라인 > 0. 소프트 필터: change_pct > 0 OR bollinger z_score < -1.0. 점수: RSI 심각도(40) + MACD 히스토그램 강도(30) + 거래량(20) + 가격 행동(10). 정렬: RSI 오름차순(더 심한 과매도 우선). 목표가: close + ATR×2, 손절가: close - ATR×1 (R:R 2:1). `recommendation_method`: "Ross Cameron". 보유 기간: "당일". `exclude_tickers` 미적용 (레버리지 ETF 포함, 순수 기술 기반). 일일·프리마켓 리포트 모두에서 S&P 500 + LEVERAGED_ETFS + ACTIVE_US_STOCKS 확장 유니버스(~550개)를 별도 수집·분석하여 호출
 - **analysis/business_cycle.py**: 경기 순환 사이클 분석. `BusinessCycleAnalyzer`가 6개 복합 팩터(섹터 로테이션, 수익률 곡선, 시장 너비, VIX, 위험 선호도, 신용 스프레드)를 종합하여 4개 국면(회복기/확장기/과열기/수축기) 판별. 원형 가중 평균(circular mean)으로 0-360도 연속 위치 계산. 추가 데이터 소스: `^TNX`, `^IRX`, `^VIX`, `HYG`, `TLT` (별도 `fetch_batch` 호출). dataclass: `CycleFactorReading`, `BusinessCycleResult`. 실패 시 기존 섹터 테이블로 폴백
 - **analysis/sentiment.py**: VADER(nltk) 기반 뉴스 헤드라인 감성 분석. `NewsSentimentAnalyzer` 클래스가 종목별 뉴스를 분석하여 5단계 라벨(매우 긍정/긍정/중립/부정/매우 부정) 및 0-100 게이지 점수 반환. VADER lazy 초기화 + lexicon 자동 다운로드 fallback. dataclass: `NewsItemSentiment`, `TickerSentiment`
 - **data/premarket.py**: `yf.Ticker(symbol).info`로 프리마켓 가격 개별 조회. `PreMarketFetcher.fetch_batch()`, `get_significant_movers()` (±1% 변동 필터), `scan_premarket_gainers()` (`yf.download()` 배치 2회 호출로 S&P 500 전체를 수초 내 스캔하여 PM 상승 종목만 추출). dataclass: `PreMarketData`
@@ -93,7 +97,8 @@ python main_premarket.py --dry-run    # 발송 없이 리포트만 생성
 7. Top 10 상승/하락
 8. 오늘의 추천 종목 (RSI, ADX, MACD, BB Z-Score, 거래량, ATR%, SPY대비, 52주위치, 매도 목표가, 손절가, 보유 기간, 뉴스 감성 게이지)
 9. 칼만 필터 추천 종목 (칼만 예측가 > 현재가 필터, 보라색 카드 레이아웃, 뉴스 감성 게이지)
-10. 장기 투자 추천 Top 3 (추세 추종 기반, 녹색 카드 레이아웃, 축소 감성 게이지)
+10. Ross Cameron 추천 Top 5 (RSI<30 + MACD 골든크로스, 앰버/브라운 그라데이션 카드, ATR×2 목표가/ATR×1 손절가, 보유 당일)
+11. 장기 투자 추천 Top 3 (추세 추종 기반, 녹색 카드 레이아웃, 축소 감성 게이지)
 
 ### 리포트 구성 (프리마켓)
 
@@ -102,6 +107,7 @@ python main_premarket.py --dry-run    # 발송 없이 리포트만 생성
 3. 섹터 ETF 프리마켓: 11개 섹터 ETF 히트맵 (변동% 색상 강도)
 4. 프리마켓 주요 변동: 상승/하락 테이블 (±1% 이상)
 4-1. 개장 급등 추천 (Opening Surge): PM +1.5%이상 종목 중 점수 상위 3개, 빨강-오렌지 카드
+4-2. Ross Cameron Watchlist: RSI<30 + MACD 골든크로스 기반 당일 관심 종목 Top 5, 앰버 카드 (.surge-card 재사용)
 5. 전일 추천 종목 현황: PM변동 + RSI/MACD/칼만예측가 오버레이
 6. 경제 캘린더
 7. 실적 발표 캘린더
@@ -326,6 +332,8 @@ python -m pytest tests/test_optimizer.py -v
 
 ## 주의사항
 
+- **Ross Cameron 스캔 유니버스**: `main.py` step 5-3 및 `main_premarket.py` step 6-3에서 S&P 500 분석 결과에 없는 `LEVERAGED_ETFS + ACTIVE_US_STOCKS` 종목만 추가 `fetch_batch` → 기술적 분석 → `{**analysis_results, **rc_extra_analysis}` 병합 후 별도 `SignalDetector(rc_analysis_results)` 생성 (lagging_sector exclude 미적용). 기존 Enhanced/Kalman/Long-term 추천에는 영향 없음
+- **yfinance MultiIndex 컬럼**: `yf.download()` 신버전에서 티커가 1개여도 MultiIndex 컬럼을 반환. `tracking/evaluator.py`의 ticker별 DataFrame 추출은 `isinstance(df.columns, pd.MultiIndex)` 체크 후 `.xs(ticker, level=1, axis=1)` 사용 (ticker 수 무관)
 - **Wikipedia 스크래핑**: `config/sp500_tickers.py`에서 User-Agent 헤더 필수 (403 방지)
 - **yfinance 캐시**: `~/.cache/py-yfinance` 폴더 권한 문제 발생 시 무시 가능
 - **yfinance 뉴스 구조**: `stock.news` 응답이 `item["content"]["title"]` 중첩 구조. `news/fetcher.py`에서 신규/구형 모두 호환 처리

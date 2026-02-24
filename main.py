@@ -279,13 +279,29 @@ def main(dry_run: bool = False, test_slack: bool = False):
         else:
             logger.info("   장기 추천 종목 없음 (하드 필터 통과 종목 부족)")
 
-        # 5-3. Ross Cameron 추천 (RSI<30 + MACD 골든크로스 전략)
+        # 5-3. Ross Cameron 추천 (S&P 500 + 레버리지 ETF + 인기 미국 주식 전체 스캔)
         logger.info("5-3. Ross Cameron 추천 종목 선정 중...")
-        ross_cameron_recommendations = signal_detector.get_ross_cameron_recommendations(top_n=5)
-        if ross_cameron_recommendations:
-            logger.info(f"   Ross Cameron 추천 {len(ross_cameron_recommendations)}개 종목 선정")
-        else:
-            logger.info("   Ross Cameron 추천 종목 없음 (RSI<30 + MACD 골든크로스 조건 미충족)")
+        ross_cameron_recommendations = []
+        try:
+            from config.sp500_tickers import LEVERAGED_ETFS, ACTIVE_US_STOCKS
+            rc_extra = [t for t in LEVERAGED_ETFS + ACTIVE_US_STOCKS if t not in analysis_results]
+            if rc_extra:
+                logger.info(f"   확장 종목 {len(rc_extra)}개 추가 수집·분석 중 (레버리지 ETF + 인기 주식)...")
+                rc_extra_data = fetcher.fetch_batch(rc_extra)
+                rc_extra_analysis = tech_analyzer.analyze_batch(rc_extra_data, spy_df)
+                rc_analysis_results = {**analysis_results, **rc_extra_analysis}
+                logger.info(f"   RC 스캔 대상: {len(rc_analysis_results)}개 종목")
+            else:
+                rc_analysis_results = analysis_results
+            # 레버리지 ETF는 섹터 분류가 없어 lagging_sector_tickers 제외 불필요
+            signal_detector_rc = SignalDetector(rc_analysis_results)
+            ross_cameron_recommendations = signal_detector_rc.get_ross_cameron_recommendations(top_n=5)
+            if ross_cameron_recommendations:
+                logger.info(f"   Ross Cameron 추천 {len(ross_cameron_recommendations)}개 종목 선정")
+            else:
+                logger.info("   Ross Cameron 추천 종목 없음 (RSI<30 + MACD 골든크로스 조건 미충족)")
+        except Exception as e:
+            logger.warning(f"   Ross Cameron 추천 실패 (리포트 생성 계속): {e}")
 
         # 6. 뉴스 수집
         logger.info("6. 뉴스 수집 중...")

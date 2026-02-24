@@ -79,12 +79,8 @@ class OutcomeEvaluator:
             if df is not None and not df.empty:
                 for ticker in tickers:
                     try:
-                        if len(tickers) == 1:
-                            ticker_df = df[["High", "Low", "Close"]].copy()
-                        elif isinstance(df.columns, pd.MultiIndex):
-                            ticker_df = df[["High", "Low", "Close"]].xs(
-                                ticker, level=1, axis=1
-                            )
+                        if isinstance(df.columns, pd.MultiIndex):
+                            ticker_df = df.xs(ticker, level=1, axis=1)[["High", "Low", "Close"]]
                         else:
                             ticker_df = df[["High", "Low", "Close"]].copy()
                         ticker_df = ticker_df.dropna()
