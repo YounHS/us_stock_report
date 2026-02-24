@@ -1856,3 +1856,195 @@ class SignalDetector:
             results.append(rec)
 
         return results
+
+    # ============================
+    # Ross Cameron Recommendation
+    # ============================
+
+    def get_ross_cameron_recommendations(self, top_n: int = 5) -> List[Dict]:
+        """
+        Ross Cameron Warrior Trading 전략 기반 추천.
+
+        하드 필터:
+          - RSI < 30 (과매도)
+          - MACD 골든크로스 (is_bullish_cross=True)
+          - MACD 라인 > 0 (양수 영역)
+
+        소프트 필터 (하나 이상 충족):
+          - 가격 상승 (change_pct > 0)
+          - 볼린저밴드 하단 근접 (z_score < -1.0)
+
+        정렬: RSI 오름차순 (더 심한 과매도 우선)
+
+        Returns:
+            추천 종목 리스트 (최대 top_n개)
+        """
+        candidates = []
+
+        for ticker, analysis in self.analysis_results.items():
+            # 부진 섹터 종목 제외
+            if ticker in self.exclude_tickers:
+                continue
+
+            rsi = analysis.get("rsi")
+            macd = analysis.get("macd")
+            bollinger = analysis.get("bollinger")
+            atr = analysis.get("atr")
+            volume = analysis.get("volume")
+            adx = analysis.get("adx")
+            rs = analysis.get("relative_strength")
+            week52 = analysis.get("week52")
+            kalman = analysis.get("kalman")
+            obv = analysis.get("obv")
+            stochastic = analysis.get("stochastic")
+            squeeze = analysis.get("squeeze")
+            close = analysis.get("close", 0)
+            change_pct = analysis.get("change_pct", 0)
+
+            # 하드 필터 1: RSI < 30
+            if not rsi or rsi.value >= 30:
+                continue
+
+            # 하드 필터 2: MACD 골든크로스 + MACD 라인 > 0
+            if not macd or not macd.is_bullish_cross or macd.macd_line <= 0:
+                continue
+
+            # 소프트 필터: 가격 행동 확인 (상승 캔들 OR BB 하단 근접)
+            z_score = bollinger.z_score if bollinger else None
+            price_action_ok = (change_pct > 0) or (z_score is not None and z_score < -1.0)
+            if not price_action_ok:
+                continue
+
+            # 점수 계산 (0~100점)
+            # RSI 심각도 (최대 40점)
+            if rsi.value < 20:
+                rsi_sc = 40
+            elif rsi.value < 25:
+                rsi_sc = 30
+            else:
+                rsi_sc = 20
+
+            # MACD 강도 (최대 30점)
+            if macd.histogram > 0.5:
+                macd_sc = 30
+            elif macd.histogram > 0:
+                macd_sc = 20
+            else:
+                macd_sc = 10
+
+            # 거래량 (최대 20점)
+            vol_ratio = volume.volume_ratio if volume else 0
+            if vol_ratio > 2.0:
+                vol_sc = 20
+            elif vol_ratio > 1.5:
+                vol_sc = 15
+            elif vol_ratio > 1.0:
+                vol_sc = 10
+            else:
+                vol_sc = 0
+
+            # 가격 행동 (최대 10점)
+            if change_pct > 0 and z_score is not None and z_score < -1.0:
+                pa_sc = 10
+            elif change_pct > 0 or (z_score is not None and z_score < -1.0):
+                pa_sc = 5
+            else:
+                pa_sc = 0
+
+            total = rsi_sc + macd_sc + vol_sc + pa_sc
+
+            candidates.append((ticker, total, rsi.value, {
+                "rsi_score": rsi_sc,
+                "macd_score": macd_sc,
+                "volume_score": vol_sc,
+                "price_action_score": pa_sc,
+            }, analysis))
+
+        # RSI 오름차순 (더 낮은 RSI = 더 심한 과매도 우선), 점수 내림차순 보조 정렬
+        candidates.sort(key=lambda x: (x[2], -x[1]))
+
+        results = []
+        for ticker, score, rsi_value, breakdown, analysis in candidates[:top_n]:
+            rsi = analysis.get("rsi")
+            macd = analysis.get("macd")
+            bollinger = analysis.get("bollinger")
+            atr = analysis.get("atr")
+            volume = analysis.get("volume")
+            adx = analysis.get("adx")
+            rs = analysis.get("relative_strength")
+            week52 = analysis.get("week52")
+            kalman = analysis.get("kalman")
+            obv = analysis.get("obv")
+            stochastic = analysis.get("stochastic")
+            squeeze = analysis.get("squeeze")
+            close = analysis.get("close", 0)
+            change_pct = analysis.get("change_pct", 0)
+
+            # ATR 기반 목표가/손절가 (R:R 2:1)
+            if atr and atr.atr > 0:
+                target_price = round(close + atr.atr * 2, 2)
+                stop_loss = round(close - atr.atr * 1, 2)
+            else:
+                target_price = round(close * 1.04, 2)
+                stop_loss = round(close * 0.98, 2)
+
+            target_return = round(((target_price - close) / close) * 100, 2) if close else None
+            risk_reward = round((target_price - close) / (close - stop_loss), 2) if close > stop_loss else None
+
+            # 추천 근거
+            reasons = []
+            reasons.append(f"RSI {rsi.value:.1f} — 심한 과매도 구간")
+            reasons.append(f"MACD 골든크로스 (MACD: {macd.macd_line:.3f} > 0)")
+            if change_pct > 0:
+                reasons.append(f"상승 캔들 확인 (+{change_pct:.2f}%)")
+            if bollinger and bollinger.z_score < -1.0:
+                reasons.append(f"볼린저밴드 하단 근접 (Z: {bollinger.z_score:.2f})")
+            if volume and volume.volume_ratio > 1.5:
+                reasons.append(f"거래량 급증 ({volume.volume_ratio:.1f}x)")
+            if rs and rs.rs_20d > 0:
+                reasons.append(f"SPY 대비 +{rs.rs_20d:.1f}% 아웃퍼폼")
+            reasons = reasons[:5]
+
+            # 주의 요인
+            warning_factors = []
+            if adx and adx.trend_direction == "bearish":
+                warning_factors.append("하락 추세 지속 중 (손절 준수 필수)")
+            if stochastic and stochastic.is_overbought:
+                warning_factors.append(f"Stochastic 과매수 (%K: {stochastic.k:.1f})")
+
+            rec = {
+                "ticker": ticker,
+                "close": close,
+                "change_pct": change_pct,
+                "rsi": round(rsi.value, 1) if rsi else None,
+                "adx": round(adx.adx, 1) if adx else None,
+                "macd_signal": "골든크로스",
+                "macd_histogram": round(macd.histogram, 4) if macd else None,
+                "bollinger_z_score": round(bollinger.z_score, 2) if bollinger else None,
+                "volume_ratio": round(volume.volume_ratio, 2) if volume else None,
+                "atr_pct": round(atr.atr / close * 100, 2) if atr and close else None,
+                "relative_strength_20d": round(rs.rs_20d, 1) if rs else None,
+                "week52_position": round(week52.current_position_pct, 1) if week52 else None,
+                "kalman_predicted_price": round(kalman.predicted_price, 2) if kalman else None,
+                "kalman_trend_velocity": round(kalman.trend_velocity, 4) if kalman else None,
+                "obv_trend": obv.obv_trend if obv else None,
+                "stochastic_k": round(stochastic.k, 1) if stochastic else None,
+                "squeeze_status": "ON" if squeeze and squeeze.is_squeeze_on else ("OFF" if squeeze else None),
+                "squeeze_momentum": squeeze.momentum_direction if squeeze else None,
+                "target_price": target_price,
+                "stop_loss": stop_loss,
+                "target_return": target_return,
+                "risk_reward_ratio": risk_reward,
+                "holding_period": "당일",
+                "recommendation_method": "Ross Cameron",
+                "reasons": reasons,
+                "warning_factors": warning_factors,
+                "score": score,
+                "score_breakdown": breakdown,
+                "disclaimer": "Ross Cameron Warrior Trading 전략 기반. 당일 매매용이며 손절가를 반드시 준수하세요.",
+            }
+
+            logger.info(f"   [Ross Cameron] 추천: {ticker} (RSI: {rsi.value:.1f}, 점수: {score})")
+            results.append(rec)
+
+        return results

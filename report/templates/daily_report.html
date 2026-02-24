@@ -1888,6 +1888,149 @@
         </div>
         {% endif %}
 
+        <!-- Ross Cameron 추천 종목 (RSI<30 + MACD 골든크로스) -->
+        {% if ross_cameron_recommendations %}
+        <div class="longterm-callout" style="background: linear-gradient(135deg, #7c2d12 0%, #92400e 50%, #78350f 100%);">
+            <h2 style="border-left: 4px solid #f59e0b; padding-left: 12px; margin-bottom: 5px; font-size: 20px;">
+                Ross Cameron 추천
+                <span style="font-size: 0.65em; color: #fde68a; font-weight: normal; margin-left: 8px;">RSI &lt; 30 + MACD 골든크로스 · 당일 매매</span>
+            </h2>
+            <div style="margin-bottom: 15px;">
+                <a href="https://younhs.github.io/us_stock_report/" target="_blank" style="color: rgba(255,255,255,0.85); font-size: 12px; text-decoration: underline;">지표 설명 보기 &rarr;</a>
+            </div>
+            <div class="longterm-grid">
+                {% for rec in ross_cameron_recommendations %}
+                <div class="longterm-card" style="border-top: 3px solid #f59e0b;">
+                    <div class="longterm-card-header">
+                        <span class="longterm-rank">#{{ loop.index }}</span>
+                        <span class="longterm-score" style="background: rgba(245, 158, 11, 0.3);">{{ rec.score }}점</span>
+                    </div>
+                    <div class="longterm-ticker">{{ rec.ticker }}</div>
+                    <div class="longterm-price">
+                        ${{ rec.close }}
+                        <span style="font-size: 13px; {{ 'color: #a7f3d0;' if rec.change_pct > 0 else 'color: #fca5a5;' if rec.change_pct < 0 else '' }}">
+                            {{ '+' if rec.change_pct > 0 else '' }}{{ rec.change_pct }}%
+                        </span>
+                    </div>
+                    <div class="longterm-indicators">
+                        {% if rec.rsi is not none %}
+                        <div class="longterm-ind-item" style="background: rgba(239, 68, 68, 0.2); border: 1px solid rgba(239,68,68,0.4);">
+                            <span class="label">RSI</span>
+                            <span class="value" style="color: #fca5a5; font-weight: 800;">{{ rec.rsi }}</span>
+                        </div>
+                        {% endif %}
+                        {% if rec.macd_signal is not none %}
+                        <div class="longterm-ind-item" style="background: rgba(52,211,153,0.15);">
+                            <span class="label">MACD</span>
+                            <span class="value" style="color: #6ee7b7;">{{ rec.macd_signal }}</span>
+                        </div>
+                        {% endif %}
+                        {% if rec.macd_histogram is not none %}
+                        <div class="longterm-ind-item">
+                            <span class="label">히스토그램</span>
+                            <span class="value {{ 'positive' if rec.macd_histogram > 0 else 'negative' }}">{{ rec.macd_histogram }}</span>
+                        </div>
+                        {% endif %}
+                        {% if rec.adx is not none %}
+                        <div class="longterm-ind-item">
+                            <span class="label">ADX</span>
+                            <span class="value">{{ rec.adx }}</span>
+                        </div>
+                        {% endif %}
+                        {% if rec.volume_ratio is not none %}
+                        <div class="longterm-ind-item">
+                            <span class="label">거래량</span>
+                            <span class="value {% if rec.volume_ratio > 1.5 %}positive{% endif %}">{{ rec.volume_ratio }}x</span>
+                        </div>
+                        {% endif %}
+                        {% if rec.bollinger_z_score is not none %}
+                        <div class="longterm-ind-item">
+                            <span class="label">BB Z</span>
+                            <span class="value {% if rec.bollinger_z_score < -1 %}positive{% endif %}">{{ rec.bollinger_z_score }}</span>
+                        </div>
+                        {% endif %}
+                        {% if rec.atr_pct is not none %}
+                        <div class="longterm-ind-item">
+                            <span class="label">ATR%</span>
+                            <span class="value">{{ rec.atr_pct }}%</span>
+                        </div>
+                        {% endif %}
+                        {% if rec.relative_strength_20d is not none %}
+                        <div class="longterm-ind-item">
+                            <span class="label">SPY대비</span>
+                            <span class="value {{ 'positive' if rec.relative_strength_20d > 0 else 'negative' }}">{{ '+' if rec.relative_strength_20d > 0 else '' }}{{ rec.relative_strength_20d }}%</span>
+                        </div>
+                        {% endif %}
+                        {% if rec.stochastic_k is not none %}
+                        <div class="longterm-ind-item">
+                            <span class="label">Stoch</span>
+                            <span class="value">{{ rec.stochastic_k }}</span>
+                        </div>
+                        {% endif %}
+                        {% if rec.obv_trend is not none %}
+                        <div class="longterm-ind-item">
+                            <span class="label">OBV</span>
+                            <span class="value">{{ rec.obv_trend }}</span>
+                        </div>
+                        {% endif %}
+                    </div>
+                    <!-- 목표가 / 손절가 -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 10px;">
+                        <div style="background: rgba(52,211,153,0.15); border-radius: 6px; padding: 6px 8px; text-align: center;">
+                            <div style="font-size: 10px; opacity: 0.7;">목표가</div>
+                            <div style="color: #6ee7b7; font-weight: 700; font-size: 13px;">${{ rec.target_price }}</div>
+                            {% if rec.target_return is not none %}
+                            <div style="font-size: 10px; color: #a7f3d0;">+{{ rec.target_return }}%</div>
+                            {% endif %}
+                        </div>
+                        <div style="background: rgba(239,68,68,0.15); border-radius: 6px; padding: 6px 8px; text-align: center;">
+                            <div style="font-size: 10px; opacity: 0.7;">손절가</div>
+                            <div style="color: #fca5a5; font-weight: 700; font-size: 13px;">${{ rec.stop_loss }}</div>
+                            {% if rec.risk_reward_ratio is not none %}
+                            <div style="font-size: 10px; opacity: 0.7;">R:R {{ rec.risk_reward_ratio }}:1</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% if rec.reasons %}
+                    <div class="longterm-reasons">
+                        <ul>
+                            {% for reason in rec.reasons[:5] %}
+                            <li>{{ reason }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+                    {% if rec.warning_factors %}
+                    <div style="margin-top: 8px; font-size: 11px; color: #fcd34d; opacity: 0.9;">
+                        {% for w in rec.warning_factors %}
+                        <div>⚠ {{ w }}</div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    {% if rec.sentiment is defined and rec.sentiment %}
+                    <div class="sentiment-compact">
+                        <div style="font-size: 10px; opacity: 0.7; margin-bottom: 4px;">뉴스 감성</div>
+                        <div class="sentiment-gauge">
+                            <div class="sentiment-gauge-marker" style="left: {{ rec.sentiment.gauge_score }}%"></div>
+                        </div>
+                        <span class="sentiment-label sentiment-label-{% if rec.sentiment.label == '매우 긍정' %}very-positive{% elif rec.sentiment.label == '긍정' %}positive{% elif rec.sentiment.label == '중립' %}neutral{% elif rec.sentiment.label == '부정' %}negative{% else %}very-negative{% endif %}" style="font-size: 10px; padding: 1px 6px;">
+                            {{ rec.sentiment.label }}
+                        </span>
+                        <span style="font-size: 10px; opacity: 0.6;">({{ rec.sentiment.positive_count }}+ / {{ rec.sentiment.negative_count }}-)</span>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            <div class="longterm-footer" style="color: rgba(255,255,255,0.75);">
+                보유 기간: 당일 | 전략: Warrior Trading (RSI &lt; 30 + MACD 골든크로스 + 양수 영역)
+            </div>
+            <div class="longterm-disclaimer" style="color: rgba(255,255,255,0.6);">
+                Ross Cameron Warrior Trading 전략 기반. 당일 매매용이며 반드시 손절가를 준수하세요.
+            </div>
+        </div>
+        {% endif %}
+
         <!-- 장기 투자 추천 종목 -->
         {% if longterm_recommendations %}
         <div class="longterm-callout">

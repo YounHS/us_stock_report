@@ -279,6 +279,14 @@ def main(dry_run: bool = False, test_slack: bool = False):
         else:
             logger.info("   장기 추천 종목 없음 (하드 필터 통과 종목 부족)")
 
+        # 5-3. Ross Cameron 추천 (RSI<30 + MACD 골든크로스 전략)
+        logger.info("5-3. Ross Cameron 추천 종목 선정 중...")
+        ross_cameron_recommendations = signal_detector.get_ross_cameron_recommendations(top_n=5)
+        if ross_cameron_recommendations:
+            logger.info(f"   Ross Cameron 추천 {len(ross_cameron_recommendations)}개 종목 선정")
+        else:
+            logger.info("   Ross Cameron 추천 종목 없음 (RSI<30 + MACD 골든크로스 조건 미충족)")
+
         # 6. 뉴스 수집
         logger.info("6. 뉴스 수집 중...")
         news_fetcher = NewsFetcher()
@@ -380,6 +388,7 @@ def main(dry_run: bool = False, test_slack: bool = False):
             earnings_calendar=earnings_calendar,
             longterm_recommendations=longterm_recommendations,
             business_cycle=cycle_result,
+            ross_cameron_recommendations=ross_cameron_recommendations,
         )
 
         # 리포트 파일 저장

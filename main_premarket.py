@@ -193,6 +193,7 @@ def main(dry_run: bool = False):
 
         # 6-2. 개장 급등 추천 (S&P 500 PM gainer만 분석)
         opening_surge_recommendations = []
+        signal_detector = SignalDetector(analysis_results)
         try:
             logger.info("6-2. 개장 급등 추천 — S&P 500 PM gainer 스캔 중...")
             min_pm_pct = settings.analysis.surge_min_pm_change_pct
@@ -241,7 +242,7 @@ def main(dry_run: bool = False):
                 logger.info("   PM 상승 종목 없음")
                 all_surge_sentiment = dict(sentiment_results)
 
-            # 6-2e. 개장 급등 추천 실행
+            # 6-2e. 개장 급등 추천 실행 (analysis_results 업데이트 후 재생성)
             signal_detector = SignalDetector(analysis_results)
             opening_surge_recommendations = signal_detector.get_opening_surge_recommendations(
                 premarket_data=premarket_data,
@@ -266,6 +267,15 @@ def main(dry_run: bool = False):
             logger.warning(f"   개장 급등 추천 실패 (리포트 생성 계속): {e}")
             opening_surge_recommendations = []
 
+        # 6-3. Ross Cameron Watchlist (전일 데이터 기반 당일 관심 종목)
+        ross_cameron_recommendations = []
+        try:
+            logger.info("6-3. Ross Cameron Watchlist 선정 중...")
+            ross_cameron_recommendations = signal_detector.get_ross_cameron_recommendations(top_n=5)
+            logger.info(f"   Ross Cameron Watchlist: {len(ross_cameron_recommendations)}개 종목 선정")
+        except Exception as e:
+            logger.warning(f"   Ross Cameron Watchlist 실패 (리포트 생성 계속): {e}")
+
         # 7. 경제/실적 캘린더
         logger.info("7. 경제/실적 캘린더 수집 중...")
         economic_cal = EconomicCalendar()
@@ -287,6 +297,7 @@ def main(dry_run: bool = False):
             earnings_calendar=earnings_calendar,
             news=news,
             opening_surge_recommendations=opening_surge_recommendations,
+            ross_cameron_recommendations=ross_cameron_recommendations,
         )
 
         report_path = report_gen.save_to_file(html_report)

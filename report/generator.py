@@ -42,6 +42,7 @@ class ReportGenerator:
         longterm_recommendations: Optional[List[Dict]] = None,
         business_cycle=None,
         report_date: Optional[str] = None,
+        ross_cameron_recommendations: Optional[List[Dict]] = None,
     ) -> str:
         """
         일일 리포트 HTML 생성
@@ -141,6 +142,7 @@ class ReportGenerator:
             "earnings_calendar": earnings_calendar,
             "longterm_recommendations": longterm_recommendations,
             "business_cycle": business_cycle_dict,
+            "ross_cameron_recommendations": ross_cameron_recommendations,
         }
 
         return template.render(**context)
