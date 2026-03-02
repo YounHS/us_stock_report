@@ -1,5 +1,34 @@
 [
   {
+    "id": "2026-03-02_XLE_Opening Surge",
+    "date": "2026-03-02",
+    "ticker": "XLE",
+    "method": "Opening Surge",
+    "entry_price": 58.14,
+    "target_price": 59.26,
+    "stop_loss": 57.58,
+    "score": 74.0,
+    "holding_period_days": 1,
+    "holding_period_raw": "30분~1시간",
+    "rsi": 74.1,
+    "adx": 43.2,
+    "kalman_predicted_price": null,
+    "score_breakdown": {
+      "pm_momentum": 25.0,
+      "news_catalyst": 14,
+      "volume_surge": 0,
+      "gap_setup": 10,
+      "squeeze_release": 10.0,
+      "relative_strength": 8.0,
+      "adx": 7.0,
+      "stochastic": 0
+    },
+    "outcome": "pending",
+    "exit_price": null,
+    "exit_date": null,
+    "return_pct": null
+  },
+  {
     "id": "2026-02-27_XLE_Opening Surge",
     "date": "2026-02-27",
     "ticker": "XLE",
