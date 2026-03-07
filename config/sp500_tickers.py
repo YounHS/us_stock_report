@@ -38,6 +38,47 @@ SECTOR_ETFS = {
 # Market index ETFs
 MARKET_ETFS = ["SPY", "QQQ", "DIA", "IWM"]
 
+# 데이트레이딩용 인기 레버리지 ETF (Ross Cameron 전략 확장 스캔용)
+LEVERAGED_ETFS = [
+    # 3x 지수
+    "TQQQ", "SQQQ",   # NASDAQ-100 Long/Short
+    "UPRO", "SPXS",   # S&P 500 Long/Short
+    "UDOW", "SDOW",   # Dow Jones Long/Short
+    "TNA",  "TZA",    # Russell 2000 Long/Short
+    # 3x 섹터
+    "SOXL", "SOXS",   # 반도체 Long/Short
+    "TECL", "TECS",   # 테크 Long/Short
+    "FAS",  "FAZ",    # 금융 Long/Short
+    "LABU", "LABD",   # 바이오테크 Long/Short
+    "NAIL",           # 주택건설 3x Long
+    "FNGU", "FNGD",   # FAANG+ 3x Long/Short
+    # 2x 원자재
+    "BOIL", "KOLD",   # 천연가스 Long/Short
+    "UCO",  "SCO",    # 원유 Long/Short
+    "NUGT", "DUST",   # 금광 Long/Short
+    "JNUG", "JDST",   # 주니어 금광 Long/Short
+    # 변동성
+    "UVXY", "SVXY",   # VIX Long/Short
+]
+
+# S&P 500 미편입 인기 미국 주식 (데이트레이딩 활성 종목)
+ACTIVE_US_STOCKS = [
+    # 암호화폐/핀테크
+    "MSTR", "COIN", "HOOD", "SOFI",
+    # 전기차
+    "RIVN", "LCID",
+    # 암호화폐 채굴
+    "MARA", "RIOT", "CLSK", "BITF",
+    # AI/반도체 (S&P 500 미편입 또는 신규)
+    "ARM", "SMCI",
+    # 양자컴퓨팅
+    "IONQ", "RGTI", "QUBT",
+    # 밈주식
+    "GME", "AMC",
+    # 기타 고변동성
+    "RKLB", "LUNR", "JOBY",
+]
+
 # Cache for S&P 500 data
 _sp500_cache: Dict[str, List[str]] = {}
 
@@ -90,6 +131,13 @@ def get_all_tickers() -> List[str]:
     for tickers in sectors.values():
         all_tickers.extend(tickers)
     return sorted(list(set(all_tickers)))
+
+
+def get_extended_tickers() -> List[str]:
+    """S&P 500 + 레버리지 ETF + 인기 미국 주식 합산 (Ross Cameron 전략용)"""
+    sp500 = get_all_tickers()
+    extended = list(set(sp500 + LEVERAGED_ETFS + ACTIVE_US_STOCKS))
+    return sorted(extended)
 
 
 def get_ticker_info() -> pd.DataFrame:

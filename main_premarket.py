@@ -267,11 +267,22 @@ def main(dry_run: bool = False):
             logger.warning(f"   개장 급등 추천 실패 (리포트 생성 계속): {e}")
             opening_surge_recommendations = []
 
-        # 6-3. Ross Cameron Watchlist (전일 데이터 기반 당일 관심 종목)
+        # 6-3. Ross Cameron Watchlist (S&P 500 + 레버리지 ETF + 인기 미국 주식 전체 스캔)
         ross_cameron_recommendations = []
         try:
-            logger.info("6-3. Ross Cameron Watchlist 선정 중...")
-            ross_cameron_recommendations = signal_detector.get_ross_cameron_recommendations(top_n=5)
+            logger.info("6-3. Ross Cameron Watchlist 선정 중 (확장 종목 포함)...")
+            from config.sp500_tickers import LEVERAGED_ETFS, ACTIVE_US_STOCKS
+            rc_extra = [t for t in LEVERAGED_ETFS + ACTIVE_US_STOCKS if t not in analysis_results]
+            if rc_extra:
+                logger.info(f"   확장 종목 {len(rc_extra)}개 추가 수집·분석 중...")
+                rc_extra_data = fetcher.fetch_batch(rc_extra)
+                rc_extra_analysis = TechnicalAnalyzer().analyze_batch(rc_extra_data, spy_df)
+                rc_analysis_results = {**analysis_results, **rc_extra_analysis}
+                logger.info(f"   RC 스캔 대상: {len(rc_analysis_results)}개 종목")
+            else:
+                rc_analysis_results = analysis_results
+            signal_detector_rc = SignalDetector(rc_analysis_results)
+            ross_cameron_recommendations = signal_detector_rc.get_ross_cameron_recommendations(top_n=5)
             logger.info(f"   Ross Cameron Watchlist: {len(ross_cameron_recommendations)}개 종목 선정")
         except Exception as e:
             logger.warning(f"   Ross Cameron Watchlist 실패 (리포트 생성 계속): {e}")
