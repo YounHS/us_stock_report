@@ -1,0 +1,59 @@
+{
+  "generated_at": "2026-03-06 22:03:09",
+  "total_recommendations": 63,
+  "pending_count": 56,
+  "evaluated_count": 7,
+  "overall": {
+    "count": 7,
+    "win_count": 0,
+    "loss_count": 7,
+    "win_rate": 0.0,
+    "avg_return": -1.04,
+    "best_return": 0,
+    "worst_return": -2.42,
+    "profit_factor": 0.0,
+    "total_return": -7.27,
+    "win_streak": 0,
+    "loss_streak": 7
+  },
+  "by_method": {},
+  "rolling_30d": {
+    "count": 7,
+    "win_count": 0,
+    "loss_count": 7,
+    "win_rate": 0.0,
+    "avg_return": -1.04,
+    "best_return": 0,
+    "worst_return": -2.42,
+    "profit_factor": 0.0,
+    "total_return": -7.27,
+    "win_streak": 0,
+    "loss_streak": 7
+  },
+  "cumulative_returns": [
+    {
+      "date": "2026-02-19",
+      "cumulative_return": -1.13
+    },
+    {
+      "date": "2026-02-25",
+      "cumulative_return": -2.85
+    },
+    {
+      "date": "2026-02-26",
+      "cumulative_return": -5.27
+    },
+    {
+      "date": "2026-02-27",
+      "cumulative_return": -5.27
+    },
+    {
+      "date": "2026-03-02",
+      "cumulative_return": -6.23
+    },
+    {
+      "date": "2026-03-03",
+      "cumulative_return": -7.27
+    }
+  ]
+}
