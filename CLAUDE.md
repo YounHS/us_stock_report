@@ -80,8 +80,8 @@ python main_premarket.py --dry-run    # 발송 없이 리포트만 생성
 - **report/generator.py**: Jinja2로 `report/templates/daily_report.html` 렌더링. `BusinessCycleResult` → dict 변환 및 SVG 마커 좌표(cos/sin) 사전 계산
 - **report/premarket_generator.py**: Jinja2로 `report/templates/premarket_report.html` 렌더링. 프리마켓 전용 컨텍스트 (시장/섹터 PM 데이터, 변동 종목, 전일 추천 현황 등)
 - **notification/slack_sender.py**: Slack Bot Token 기반 메시지 + PDF 리포트 발송. 요약 메시지에 단기/칼만 추천 및 뉴스 감성 정보 포함. HTML→PDF 변환은 `google-chrome --headless --print-to-pdf` 사용
-- **tracking/recorder.py**: `RecommendationRecorder`가 매일 추천 종목(Enhanced/Kalman/Long-term/Opening Surge)을 `docs/data/recommendations.json`에 기록. 복합 ID(`{date}_{ticker}_{method}`)로 중복 제거, `retention_days`(기본 90일) 초과 완료 항목 자동 정리. 한글 보유 기간 파싱("3-5일", "2-3주", "1-3개월", "30분~1시간" → 최대 거래일 수). Long-term 추천은 `target_price` 없으면 `kalman_predicted_price` 사용, `stop_loss` 없으면 진입가 × (1 - 8%) 사용. `record_surge()` 메서드로 Opening Surge 추천 기록 (`entry_price`=PM가격, `holding_period_days`=1). 모든 추천에 `score_breakdown` (지표별 개별 점수) 저장하여 튜닝 데이터로 활용
-- **tracking/evaluator.py**: `OutcomeEvaluator`가 보유 기간 경과한 pending 항목을 `yf.download()` 배치로 평가. 일별 High/Low 순회: Low ≤ stop → "loss", High ≥ target → "win" (같은 날 둘 다 해당 시 stop 우선). 기간 만료 → 최종 종가 기준 "expired_profit" 또는 "expired_loss". 데이터 없는 티커 → "expired_loss" (return 0%)
+- **tracking/recorder.py**: `RecommendationRecorder`가 매일 추천 종목(Enhanced/Kalman/Long-term/Opening Surge)을 `docs/data/recommendations.json`에 기록. 복합 ID(`{date}_{ticker}_{method}`)로 중복 제거, `retention_days`(기본 90일) 초과 완료 항목 자동 정리. 한글 보유 기간 파싱("3-5일", "2-3주", "1-3개월", "30분~1시간" → 최대 거래일 수). Long-term 추천은 `target_price` 없으면 `kalman_predicted_price` 사용, `stop_loss` 없으면 진입가 × (1 - 8%) 사용. `record_surge()` 메서드로 Opening Surge 추천 기록 (`entry_price`=PM가격, `holding_period_days`=1). 모든 추천에 `score_breakdown` (지표별 개별 점수) 저장하여 튜닝 데이터로 활용. `_deduplicate_recent()` — 최근 **5일 이내** 동일 ticker+method 조합이 이미 기록된 경우 중복 기록 스킵 (반복 추천으로 인한 통계 왜곡 방지)
+- **tracking/evaluator.py**: `OutcomeEvaluator`가 보유 기간 경과한 pending 항목을 `yf.download()` 배치로 평가. 일별 High/Low 순회: Low ≤ stop → "loss", High ≥ target → "win" (같은 날 둘 다 해당 시 stop 우선). 기간 만료 → 최종 종가 기준 "expired_profit" 또는 "expired_loss". 데이터 없는 티커 → "expired_loss" (return 0%). `yf.download()` end 파라미터는 exclusive이므로 `end = (today + timedelta(days=1))`로 설정하여 오늘 종가 포함
 - **tracking/summary.py**: `SummaryGenerator`가 `recommendations.json`에서 통계를 계산하여 `docs/data/summary.json` 생성. 전체/방식별/30일 롤링 통계 (승률, 평균 수익률, best/worst, profit factor, 연승/연패), 누적 수익률 시계열 (차트용)
 - **tuning/optimizer.py**: `ParameterOptimizer`가 평가 완료된 추천 성과 데이터를 분석하여 각 방식의 scoring weights와 min_score를 자동 조정. 효과성(win-rate lift + return lift) 기반 가중치 제안 → EMA 스무딩(α=0.3) → 바운드(floor=2, ceiling=30) → 정규화(합=100). `docs/data/tuned_params.json`에 저장, 다음 실행 시 `signals.py`가 로드하여 사용. 지원 방식: Enhanced, Kalman (Enhanced 가중치 맵 재사용), Long-term, Opening Surge
 - **docs/dashboard.html**: 정적 HTML + Chart.js (CDN) 성과 대시보드. 요약 카드, 방식별 비교 카드 (Enhanced=파랑, Kalman=보라, Long-term=녹색), 누적 수익률 라인 차트, 필터 (방식/결과/기간), 추천 기록 테이블. `docs/data/` JSON을 클라이언트 사이드로 fetch
@@ -136,7 +136,7 @@ python main_premarket.py --dry-run    # 발송 없이 리포트만 생성
 - 칼만 필터 실패 시 Bollinger SMA 단독 사용 (기존 로직 폴백)
 
 **Enhanced 방식** (`get_enhanced_recommendation()`):
-- **칼만 상승 여력 하드 필터**: 칼만 예측가 기준 종가 대비 10% 이상 상승 여력 있는 종목만 후보 (칼만 데이터 없는 종목도 제외)
+- **칼만 상승 여력 하드 필터**: `blended_target`(칼만 예측가 50% + 볼린저 SMA 50% 혼합 목표가) 기준 종가 대비 **2% 이상** 상승 여력 있는 종목만 후보 (칼만 데이터 없는 종목도 제외). 1-step 예측가(`predicted_price`)가 아닌 `blended_target` 사용 — 볼린저 SMA와 혼합하여 눌림목 종목을 정상 포착
 - **점수 기준 점진적 하향**: 1차 시도 `min_recommendation_score`(기본 35) → 후보 없으면 5점씩 하향 → 하한 10점 → 하한 미달 시에도 칼만 상승 여력 최고 점수 종목 선정
 - 가중치 점수 시스템으로 종목 순위 산정
 - 70점 이상: High 신뢰도, 그 외: Medium 신뢰도
@@ -145,13 +145,13 @@ python main_premarket.py --dry-run    # 발송 없이 리포트만 생성
 
 **Legacy 방식** (`get_top_recommendation()`):
 - Enhanced 실패 시 폴백으로 사용
-- **칼만 상승 여력 하드 필터**: 각 신호 그룹 내 종목을 순회하며 칼만 예측가 기준 종가 대비 10% 이상 상승 여력인 첫 종목 선정
+- **칼만 상승 여력 하드 필터**: 각 신호 그룹 내 종목을 순회하며 `blended_target` 기준 종가 대비 **2% 이상** 상승 여력인 첫 종목 선정
 - 우선순위: 복합 신호 → RSI 과매도 → MACD 골든크로스 → 1시그마 근접
 - 모든 그룹에서 칼만 유효 후보 없으면 `None` 반환
 - 매도 목표가는 칼만 블렌딩 목표가 기준 (폴백: 20일 SMA)
 
 **칼만 필터 방식** (`get_kalman_recommendation()`):
-- 칼만 예측가가 현재가보다 높은 종목만 후보로 선정 (상승 여력 필터)
+- `blended_target`(칼만 예측가 50% + 볼린저 SMA 50% 혼합)이 현재가보다 높은 종목만 후보로 선정 (상승 여력 필터)
 - 기존 Enhanced 점수 시스템 재사용 (동일 가중치, 동일 최소 점수)
 - 기존 단기 추천 종목과 중복 제외 (`exclude_tickers` 파라미터)
 - ATR 기반 손절가, 칼만 블렌딩 목표가 계산 (Enhanced와 동일)
@@ -348,6 +348,7 @@ python -m pytest tests/test_optimizer.py -v
 - **사이클 SVG**: 인라인 SVG 사용 (외부 이미지 없음). Chrome headless PDF 변환 호환. Jinja2에 cos/sin 없으므로 generator.py에서 마커 좌표 사전 계산
 - **성과 추적 순서**: `main.py` step 7-2에서 반드시 evaluate → record → summary 순서 실행. 오늘의 추천을 먼저 기록하면 즉시 평가 대상이 될 수 있으므로 평가를 먼저 수행
 - **성과 추적 데이터**: `docs/data/recommendations.json`, `docs/data/summary.json`, `docs/data/tuned_params.json`은 GitHub Actions에서 `[skip ci]` 커밋으로 자동 푸시. 로컬 `--dry-run` 시에도 파일 생성됨
+- **GitHub Actions 커밋 step**: `run_main.yml` 및 `run_premarket.yml`의 tracking data 커밋 step은 `if: always()` 조건 — Slack 발송 실패(`sys.exit(1)`) 시에도 step 7-2에서 파일에 기록된 추천/평가 데이터가 커밋됨. `git diff --cached --quiet` 체크로 변경 없을 시 빈 커밋 생성 방지
 - **Long-term 추천 목표가/손절가**: Long-term 추천은 `target_price`/`stop_loss` 필드가 없으므로 트래킹 시 `kalman_predicted_price`를 목표가로, 진입가 × (1 - `TRACKING_LT_STOP_PCT`/100)을 손절가로 사용
 - **파라미터 튜닝 순서**: `main.py` step 7-2에서 evaluate → record → summary → **tune** 순서. 오늘의 추천은 이전 튜닝 결과로 생성되고, 오늘의 평가 결과가 다음 실행의 가중치를 조정함
 - **튜닝 비활성화**: `.env`에서 `TUNING_ENABLED=false` 설정 시 튜닝 단계 스킵. `tuned_params.json`이 없으면 `signals.py`가 `settings.analysis` 기본값 사용

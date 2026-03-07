@@ -64,6 +64,12 @@ class RecommendationRecorder:
             logger.info("기록할 추천 종목 없음")
             return 0
 
+        # 최근 5일 이내 동일 티커+방식 중복 추천 방지
+        new_entries = self._deduplicate_recent(new_entries, history, lookback_days=5)
+        if not new_entries:
+            logger.info("최근 5일 이내 동일 추천 중복 — 기록 건너뜀")
+            return 0
+
         # 중복 제거 (같은 날 같은 종목/방식이면 교체)
         existing_ids = {e["id"] for e in history}
         for entry in new_entries:
@@ -201,6 +207,28 @@ class RecommendationRecorder:
             "exit_date": None,
             "return_pct": None,
         }
+
+    @staticmethod
+    def _deduplicate_recent(
+        new_entries: List[Dict], history: List[Dict], lookback_days: int = 5
+    ) -> List[Dict]:
+        """최근 lookback_days 이내에 같은 ticker+method 조합이 있으면 제외"""
+        cutoff = (datetime.now() - timedelta(days=lookback_days)).strftime("%Y-%m-%d")
+        recent_keys = {
+            (e["ticker"], e["method"])
+            for e in history
+            if e.get("date", "") >= cutoff
+        }
+        filtered = []
+        for entry in new_entries:
+            key = (entry["ticker"], entry["method"])
+            if key in recent_keys:
+                logger.info(
+                    f"{entry['ticker']} ({entry['method']}) — 최근 {lookback_days}일 이내 동일 추천 존재, 스킵"
+                )
+            else:
+                filtered.append(entry)
+        return filtered
 
     @staticmethod
     def _parse_holding_period(raw: str) -> int:

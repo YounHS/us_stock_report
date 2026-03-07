@@ -68,11 +68,13 @@ class OutcomeEvaluator:
         ).strftime("%Y-%m-%d")
 
         price_data = {}
+        # yfinance end는 exclusive이므로 +1일 해야 오늘 데이터 포함
+        end_date = (today + timedelta(days=1)).strftime("%Y-%m-%d")
         try:
             df = yf.download(
                 tickers,
                 start=start_date,
-                end=today_str,
+                end=end_date,
                 auto_adjust=True,
                 progress=False,
             )

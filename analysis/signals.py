@@ -317,8 +317,9 @@ class SignalDetector:
                 kalman = analysis.get("kalman")
                 close = analysis.get("close", 0)
                 if kalman and close:
-                    kalman_return_pct = ((kalman.predicted_price - close) / close) * 100
-                    if kalman_return_pct >= 10:
+                    # blended_target (칼만 + 볼린저 SMA 혼합 목표가) 기준 2% 이상 상승 여력
+                    kalman_return_pct = ((kalman.blended_target - close) / close) * 100
+                    if kalman_return_pct >= 2:
                         return candidate
             return None
 
@@ -709,13 +710,13 @@ class SignalDetector:
             if not analysis.get("rsi") and not analysis.get("bollinger"):
                 continue
 
-            # 칼만 예측가 기준 10% 이상 상승 여력 필터
+            # blended_target (칼만 + 볼린저 SMA 혼합 목표가) 기준 2% 이상 상승 여력 필터
             kalman = analysis.get("kalman")
             close = analysis.get("close", 0)
             if not kalman or not close:
                 continue
-            kalman_return_pct = ((kalman.predicted_price - close) / close) * 100
-            if kalman_return_pct < 10:
+            kalman_return_pct = ((kalman.blended_target - close) / close) * 100
+            if kalman_return_pct < 2:
                 continue
 
             # 점수 계산
@@ -952,10 +953,10 @@ class SignalDetector:
             if not analysis.get("rsi") and not analysis.get("bollinger"):
                 continue
 
-            # 하드 필터: 칼만 예측가 > 현재가
+            # 하드 필터: blended_target (칼만+볼린저 SMA 혼합 목표가) > 현재가
             kalman = analysis.get("kalman")
             close = analysis.get("close", 0)
-            if not kalman or not close or kalman.predicted_price <= close:
+            if not kalman or not close or kalman.blended_target <= close:
                 continue
 
             # 점수 계산 (Kalman 방식 가중치 적용)
