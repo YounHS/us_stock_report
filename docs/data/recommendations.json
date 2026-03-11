@@ -1,5 +1,34 @@
 [
   {
+    "id": "2026-03-11_ORCL_Opening Surge",
+    "date": "2026-03-11",
+    "ticker": "ORCL",
+    "method": "Opening Surge",
+    "entry_price": 164.99,
+    "target_price": 172.33,
+    "stop_loss": 161.32,
+    "score": 42.0,
+    "holding_period_days": 1,
+    "holding_period_raw": "30분~1시간",
+    "rsi": 44.3,
+    "adx": 16.7,
+    "kalman_predicted_price": null,
+    "score_breakdown": {
+      "pm_momentum": 25.0,
+      "news_catalyst": 0,
+      "volume_surge": 7,
+      "gap_setup": 5,
+      "squeeze_release": 0,
+      "relative_strength": 0,
+      "adx": 0,
+      "stochastic": 5.0
+    },
+    "outcome": "pending",
+    "exit_price": null,
+    "exit_date": null,
+    "return_pct": null
+  },
+  {
     "id": "2026-03-10_BX_Legacy",
     "date": "2026-03-10",
     "ticker": "BX",
