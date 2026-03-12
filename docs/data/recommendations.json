@@ -1,5 +1,34 @@
 [
   {
+    "id": "2026-03-12_XLE_Opening Surge",
+    "date": "2026-03-12",
+    "ticker": "XLE",
+    "method": "Opening Surge",
+    "entry_price": 57.45,
+    "target_price": 58.69,
+    "stop_loss": 56.83,
+    "score": 55.0,
+    "holding_period_days": 1,
+    "holding_period_raw": "30분~1시간",
+    "rsi": 65.9,
+    "adx": 36.9,
+    "kalman_predicted_price": null,
+    "score_breakdown": {
+      "pm_momentum": 20,
+      "news_catalyst": 0,
+      "volume_surge": 0,
+      "gap_setup": 10,
+      "squeeze_release": 10.0,
+      "relative_strength": 8.0,
+      "adx": 7.0,
+      "stochastic": 0
+    },
+    "outcome": "pending",
+    "exit_price": null,
+    "exit_date": null,
+    "return_pct": null
+  },
+  {
     "id": "2026-03-11_ORCL_Opening Surge",
     "date": "2026-03-11",
     "ticker": "ORCL",
