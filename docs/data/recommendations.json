@@ -1,5 +1,34 @@
 [
   {
+    "id": "2026-03-20_XLE_Opening Surge",
+    "date": "2026-03-20",
+    "ticker": "XLE",
+    "method": "Opening Surge",
+    "entry_price": 59.7,
+    "target_price": 60.89,
+    "stop_loss": 59.1,
+    "score": 73.8,
+    "holding_period_days": 1,
+    "holding_period_raw": "30분~1시간",
+    "rsi": 81.6,
+    "adx": 47.7,
+    "kalman_predicted_price": null,
+    "score_breakdown": {
+      "pm_momentum": 4,
+      "news_catalyst": 3,
+      "volume_surge": 0,
+      "gap_setup": 14,
+      "squeeze_release": 18.0,
+      "relative_strength": 17.5,
+      "adx": 17.3,
+      "stochastic": 0
+    },
+    "outcome": "pending",
+    "exit_price": null,
+    "exit_date": null,
+    "return_pct": null
+  },
+  {
     "id": "2026-03-19_CRH_Legacy",
     "date": "2026-03-19",
     "ticker": "CRH",
