@@ -1,5 +1,57 @@
 [
   {
+    "id": "2026-03-23_AMCR_Legacy",
+    "date": "2026-03-23",
+    "ticker": "AMCR",
+    "method": "Legacy",
+    "entry_price": 39.36,
+    "target_price": 40.48,
+    "stop_loss": 36.65,
+    "score": null,
+    "holding_period_days": 20,
+    "holding_period_raw": "2-4주 (복수 신호로 신뢰도 높음)",
+    "rsi": 28.8,
+    "adx": 68.1,
+    "kalman_predicted_price": 37.55,
+    "score_breakdown": null,
+    "outcome": "pending",
+    "exit_price": null,
+    "exit_date": null,
+    "return_pct": null
+  },
+  {
+    "id": "2026-03-23_PLTR_Long-term",
+    "date": "2026-03-23",
+    "ticker": "PLTR",
+    "method": "Long-term",
+    "entry_price": 160.84,
+    "target_price": 212.59,
+    "stop_loss": 147.97,
+    "score": 71.0,
+    "holding_period_days": 63,
+    "holding_period_raw": "1-3개월 (추세 추종 전략)",
+    "rsi": 66.8,
+    "adx": 28.4,
+    "kalman_predicted_price": 212.59,
+    "score_breakdown": {
+      "rsi_score": 3,
+      "macd_score": 11,
+      "bollinger_score": 3,
+      "volume_score": 4,
+      "adx_score": 10,
+      "relative_strength_score": 12.0,
+      "week52_score": 4,
+      "kalman_score": 8.0,
+      "obv_score": 8.0,
+      "stochastic_score": 0,
+      "squeeze_score": 8.0
+    },
+    "outcome": "pending",
+    "exit_price": null,
+    "exit_date": null,
+    "return_pct": null
+  },
+  {
     "id": "2026-03-20_XLE_Opening Surge",
     "date": "2026-03-20",
     "ticker": "XLE",
@@ -23,10 +75,10 @@
       "adx": 17.3,
       "stochastic": 0
     },
-    "outcome": "pending",
-    "exit_price": null,
-    "exit_date": null,
-    "return_pct": null
+    "outcome": "loss",
+    "exit_price": 59.1,
+    "exit_date": "2026-03-23",
+    "return_pct": -1.01
   },
   {
     "id": "2026-03-20_SMCI_Enhanced",
