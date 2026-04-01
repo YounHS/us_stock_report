@@ -1,15 +1,15 @@
 {
-  "last_updated": "2026-03-31",
+  "last_updated": "2026-04-01",
   "Opening Surge": {
     "weights": {
-      "surge_weight_pm_momentum": 2.5,
+      "surge_weight_pm_momentum": 2.4,
       "surge_weight_news_catalyst": 6.9,
       "surge_weight_volume": 6.2,
-      "surge_weight_gap": 21.6,
-      "surge_weight_squeeze": 13.8,
-      "surge_weight_relative_strength": 13.8,
-      "surge_weight_adx": 13.8,
-      "surge_weight_stochastic": 21.3
+      "surge_weight_gap": 21.8,
+      "surge_weight_squeeze": 13.7,
+      "surge_weight_relative_strength": 13.7,
+      "surge_weight_adx": 13.7,
+      "surge_weight_stochastic": 21.5
     },
     "min_score": 52,
     "samples_used": 12,
