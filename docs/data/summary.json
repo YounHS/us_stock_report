@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-04-02 22:20:32",
-  "total_recommendations": 128,
-  "pending_count": 111,
+  "generated_at": "2026-04-03 22:18:23",
+  "total_recommendations": 129,
+  "pending_count": 112,
   "evaluated_count": 17,
   "overall": {
     "count": 17,
@@ -45,15 +45,15 @@
     }
   },
   "rolling_30d": {
-    "count": 8,
-    "win_count": 4,
-    "loss_count": 4,
+    "count": 6,
+    "win_count": 3,
+    "loss_count": 3,
     "win_rate": 50.0,
-    "avg_return": 1.39,
+    "avg_return": 1.85,
     "best_return": 14.6,
     "worst_return": -2.22,
-    "profit_factor": 3.08,
-    "total_return": 11.08,
+    "profit_factor": 3.59,
+    "total_return": 11.11,
     "win_streak": 2,
     "loss_streak": 1
   },
