@@ -1,5 +1,37 @@
 [
   {
+    "id": "2026-04-06_DPZ_Long-term",
+    "date": "2026-04-06",
+    "ticker": "DPZ",
+    "method": "Long-term",
+    "entry_price": 380.77,
+    "target_price": 609.03,
+    "stop_loss": 350.31,
+    "score": 72.0,
+    "holding_period_days": 63,
+    "holding_period_raw": "1-3개월 (추세 추종 전략)",
+    "rsi": 62.3,
+    "adx": 36.2,
+    "kalman_predicted_price": 609.03,
+    "score_breakdown": {
+      "rsi_score": 5,
+      "macd_score": 7,
+      "bollinger_score": 4,
+      "volume_score": 4,
+      "adx_score": 15.0,
+      "relative_strength_score": 0,
+      "week52_score": 8.0,
+      "kalman_score": 8.0,
+      "obv_score": 8.0,
+      "stochastic_score": 5.0,
+      "squeeze_score": 8.0
+    },
+    "outcome": "pending",
+    "exit_price": null,
+    "exit_date": null,
+    "return_pct": null
+  },
+  {
     "id": "2026-04-03_ESS_Long-term",
     "date": "2026-04-03",
     "ticker": "ESS",
@@ -854,10 +886,10 @@
       "stochastic_score": 8.0,
       "squeeze_score": 0
     },
-    "outcome": "pending",
-    "exit_price": null,
-    "exit_date": null,
-    "return_pct": null
+    "outcome": "expired_profit",
+    "exit_price": 22.05,
+    "exit_date": "2026-04-06",
+    "return_pct": 7.4
   },
   {
     "id": "2026-03-20_EXPE_Long-term",
