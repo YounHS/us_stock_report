@@ -1,18 +1,18 @@
 {
-  "generated_at": "2026-04-16 22:36:33",
-  "total_recommendations": 160,
-  "pending_count": 136,
-  "evaluated_count": 24,
+  "generated_at": "2026-04-17 22:25:18",
+  "total_recommendations": 163,
+  "pending_count": 137,
+  "evaluated_count": 26,
   "overall": {
-    "count": 24,
-    "win_count": 11,
-    "loss_count": 13,
-    "win_rate": 45.8,
-    "avg_return": 0.27,
+    "count": 26,
+    "win_count": 12,
+    "loss_count": 14,
+    "win_rate": 46.2,
+    "avg_return": 0.11,
     "best_return": 14.6,
     "worst_return": -8.49,
-    "profit_factor": 1.22,
-    "total_return": 6.55,
+    "profit_factor": 1.09,
+    "total_return": 2.99,
     "win_streak": 3,
     "loss_streak": 8
   },
@@ -44,30 +44,30 @@
       "loss_streak": 0
     },
     "Legacy": {
-      "count": 10,
-      "win_count": 7,
-      "loss_count": 3,
-      "win_rate": 70.0,
-      "avg_return": 1.16,
+      "count": 12,
+      "win_count": 8,
+      "loss_count": 4,
+      "win_rate": 66.7,
+      "avg_return": 0.67,
       "best_return": 14.6,
       "worst_return": -8.49,
-      "profit_factor": 1.73,
-      "total_return": 11.59,
+      "profit_factor": 1.37,
+      "total_return": 8.03,
       "win_streak": 5,
       "loss_streak": 2
     }
   },
   "rolling_30d": {
-    "count": 2,
-    "win_count": 1,
+    "count": 3,
+    "win_count": 2,
     "loss_count": 1,
-    "win_rate": 50.0,
-    "avg_return": 3.2,
+    "win_rate": 66.7,
+    "avg_return": 2.93,
     "best_return": 7.4,
     "worst_return": -1.01,
-    "profit_factor": 7.33,
-    "total_return": 6.39,
-    "win_streak": 1,
+    "profit_factor": 9.7,
+    "total_return": 8.79,
+    "win_streak": 2,
     "loss_streak": 1
   },
   "cumulative_returns": [
@@ -128,8 +128,16 @@
       "cumulative_return": 0.16
     },
     {
+      "date": "2026-03-17",
+      "cumulative_return": -5.8
+    },
+    {
       "date": "2026-03-20",
-      "cumulative_return": 6.55
+      "cumulative_return": 0.59
+    },
+    {
+      "date": "2026-04-01",
+      "cumulative_return": 2.99
     }
   ]
 }
