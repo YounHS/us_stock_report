@@ -1,18 +1,18 @@
 {
-  "generated_at": "2026-05-08 22:41:38",
-  "total_recommendations": 213,
-  "pending_count": 174,
-  "evaluated_count": 39,
+  "generated_at": "2026-05-11 22:43:53",
+  "total_recommendations": 217,
+  "pending_count": 175,
+  "evaluated_count": 42,
   "overall": {
-    "count": 39,
-    "win_count": 22,
-    "loss_count": 17,
-    "win_rate": 56.4,
-    "avg_return": 0.63,
+    "count": 42,
+    "win_count": 23,
+    "loss_count": 19,
+    "win_rate": 54.8,
+    "avg_return": 0.37,
     "best_return": 16.19,
     "worst_return": -9.86,
-    "profit_factor": 1.43,
-    "total_return": 24.59,
+    "profit_factor": 1.23,
+    "total_return": 15.59,
     "win_streak": 5,
     "loss_streak": 8
   },
@@ -44,31 +44,31 @@
       "loss_streak": 0
     },
     "Legacy": {
-      "count": 25,
-      "win_count": 18,
-      "loss_count": 7,
-      "win_rate": 72.0,
-      "avg_return": 1.19,
+      "count": 28,
+      "win_count": 19,
+      "loss_count": 9,
+      "win_rate": 67.9,
+      "avg_return": 0.74,
       "best_return": 16.19,
       "worst_return": -9.86,
-      "profit_factor": 1.67,
-      "total_return": 29.63,
+      "profit_factor": 1.37,
+      "total_return": 20.63,
       "win_streak": 5,
       "loss_streak": 2
     }
   },
   "rolling_30d": {
     "count": 4,
-    "win_count": 4,
-    "loss_count": 0,
-    "win_rate": 100.0,
-    "avg_return": 6.71,
-    "best_return": 16.19,
-    "worst_return": 0.74,
-    "profit_factor": 999.99,
-    "total_return": 26.82,
-    "win_streak": 4,
-    "loss_streak": 0
+    "win_count": 2,
+    "loss_count": 2,
+    "win_rate": 50.0,
+    "avg_return": -1.26,
+    "best_return": 3.98,
+    "worst_return": -5.9,
+    "profit_factor": 0.57,
+    "total_return": -5.02,
+    "win_streak": 1,
+    "loss_streak": 1
   },
   "cumulative_returns": [
     {
@@ -190,6 +190,18 @@
     {
       "date": "2026-04-13",
       "cumulative_return": 24.59
+    },
+    {
+      "date": "2026-04-16",
+      "cumulative_return": 18.93
+    },
+    {
+      "date": "2026-04-17",
+      "cumulative_return": 21.49
+    },
+    {
+      "date": "2026-04-23",
+      "cumulative_return": 15.59
     }
   ]
 }
