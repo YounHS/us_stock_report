@@ -1,27 +1,27 @@
 {
-  "last_updated": "2026-05-20",
+  "last_updated": "2026-05-21",
   "Opening Surge": {
     "weights": {
-      "surge_weight_pm_momentum": 2.4,
-      "surge_weight_news_catalyst": 6.9,
-      "surge_weight_volume": 6.2,
-      "surge_weight_gap": 22.1,
-      "surge_weight_squeeze": 13.5,
-      "surge_weight_relative_strength": 13.5,
-      "surge_weight_adx": 13.5,
-      "surge_weight_stochastic": 22.0
+      "surge_weight_pm_momentum": 4.7,
+      "surge_weight_news_catalyst": 5.9,
+      "surge_weight_volume": 5.2,
+      "surge_weight_gap": 22.5,
+      "surge_weight_squeeze": 13.1,
+      "surge_weight_relative_strength": 13.1,
+      "surge_weight_adx": 13.1,
+      "surge_weight_stochastic": 22.4
     },
     "min_score": 52,
-    "samples_used": 12,
+    "samples_used": 11,
     "effectiveness": {
-      "pm_momentum": -0.6507,
-      "news_catalyst": -0.4445,
-      "volume_surge": -0.472,
-      "gap_setup": 0.2275,
-      "squeeze_release": -0.1585,
-      "relative_strength": -0.1585,
-      "adx": -0.1585,
-      "stochastic": 0.224
+      "pm_momentum": -0.2473,
+      "news_catalyst": -0.4788,
+      "volume_surge": -0.5022,
+      "gap_setup": 0.2107,
+      "squeeze_release": -0.1792,
+      "relative_strength": -0.1792,
+      "adx": -0.1792,
+      "stochastic": 0.2067
     }
   }
 }
