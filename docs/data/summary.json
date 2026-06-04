@@ -1,18 +1,18 @@
 {
-  "generated_at": "2026-06-03 23:25:20",
-  "total_recommendations": 221,
-  "pending_count": 182,
-  "evaluated_count": 39,
+  "generated_at": "2026-06-04 22:58:41",
+  "total_recommendations": 223,
+  "pending_count": 183,
+  "evaluated_count": 40,
   "overall": {
-    "count": 39,
-    "win_count": 24,
+    "count": 40,
+    "win_count": 25,
     "loss_count": 15,
-    "win_rate": 61.5,
-    "avg_return": 0.33,
+    "win_rate": 62.5,
+    "avg_return": 0.38,
     "best_return": 16.19,
     "worst_return": -9.86,
-    "profit_factor": 1.16,
-    "total_return": 12.72,
+    "profit_factor": 1.19,
+    "total_return": 15.39,
     "win_streak": 5,
     "loss_streak": 3
   },
@@ -31,15 +31,15 @@
       "loss_streak": 0
     },
     "Legacy": {
-      "count": 33,
-      "win_count": 21,
+      "count": 34,
+      "win_count": 22,
       "loss_count": 12,
-      "win_rate": 63.6,
-      "avg_return": 0.27,
+      "win_rate": 64.7,
+      "avg_return": 0.34,
       "best_return": 16.19,
       "worst_return": -9.86,
-      "profit_factor": 1.11,
-      "total_return": 8.81,
+      "profit_factor": 1.15,
+      "total_return": 11.48,
       "win_streak": 5,
       "loss_streak": 3
     }
@@ -181,6 +181,10 @@
     {
       "date": "2026-05-01",
       "cumulative_return": 12.72
+    },
+    {
+      "date": "2026-05-04",
+      "cumulative_return": 15.39
     }
   ]
 }
