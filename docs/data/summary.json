@@ -1,18 +1,18 @@
 {
-  "generated_at": "2026-06-12 23:05:33",
-  "total_recommendations": 216,
-  "pending_count": 183,
-  "evaluated_count": 33,
+  "generated_at": "2026-06-15 23:27:25",
+  "total_recommendations": 209,
+  "pending_count": 173,
+  "evaluated_count": 36,
   "overall": {
-    "count": 33,
+    "count": 36,
     "win_count": 19,
-    "loss_count": 14,
-    "win_rate": 57.6,
-    "avg_return": -0.61,
+    "loss_count": 17,
+    "win_rate": 52.8,
+    "avg_return": -0.93,
     "best_return": 16.19,
     "worst_return": -16.69,
-    "profit_factor": 0.79,
-    "total_return": -20.21,
+    "profit_factor": 0.69,
+    "total_return": -33.54,
     "win_streak": 5,
     "loss_streak": 3
   },
@@ -31,148 +31,172 @@
       "loss_streak": 0
     },
     "Legacy": {
-      "count": 31,
+      "count": 34,
       "win_count": 18,
-      "loss_count": 13,
-      "win_rate": 58.1,
-      "avg_return": -0.86,
+      "loss_count": 16,
+      "win_rate": 52.9,
+      "avg_return": -1.17,
       "best_return": 16.19,
       "worst_return": -16.69,
-      "profit_factor": 0.72,
-      "total_return": -26.6,
+      "profit_factor": 0.63,
+      "total_return": -39.93,
       "win_streak": 5,
       "loss_streak": 3
     }
   },
-  "rolling_30d": {},
+  "rolling_30d": {
+    "count": 1,
+    "win_count": 0,
+    "loss_count": 1,
+    "win_rate": 0.0,
+    "avg_return": -5.57,
+    "best_return": -5.57,
+    "worst_return": -5.57,
+    "profit_factor": 0.0,
+    "total_return": -5.57,
+    "win_streak": 0,
+    "loss_streak": 1
+  },
   "cumulative_returns": [
     {
-      "date": "2026-03-16",
-      "cumulative_return": 2.23
-    },
-    {
       "date": "2026-03-17",
-      "cumulative_return": -3.73
+      "cumulative_return": -5.96
     },
     {
       "date": "2026-03-19",
-      "cumulative_return": -0.47
+      "cumulative_return": -2.7
     },
     {
       "date": "2026-03-20",
-      "cumulative_return": 5.92
+      "cumulative_return": 3.69
     },
     {
       "date": "2026-03-23",
-      "cumulative_return": 8.77
+      "cumulative_return": 6.54
     },
     {
       "date": "2026-03-25",
-      "cumulative_return": -1.09
+      "cumulative_return": -3.32
     },
     {
       "date": "2026-03-26",
-      "cumulative_return": -8.38
+      "cumulative_return": -10.61
     },
     {
       "date": "2026-03-27",
-      "cumulative_return": -5.23
+      "cumulative_return": -7.46
     },
     {
       "date": "2026-03-30",
-      "cumulative_return": -3.08
+      "cumulative_return": -5.31
     },
     {
       "date": "2026-03-31",
-      "cumulative_return": -0.44
+      "cumulative_return": -2.67
     },
     {
       "date": "2026-04-01",
-      "cumulative_return": 1.96
+      "cumulative_return": -0.27
     },
     {
       "date": "2026-04-02",
-      "cumulative_return": 4.84
+      "cumulative_return": 2.61
     },
     {
       "date": "2026-04-07",
-      "cumulative_return": -0.16
+      "cumulative_return": -2.39
     },
     {
       "date": "2026-04-08",
-      "cumulative_return": 5.75
+      "cumulative_return": 3.52
     },
     {
       "date": "2026-04-09",
-      "cumulative_return": 21.94
+      "cumulative_return": 19.71
     },
     {
       "date": "2026-04-10",
-      "cumulative_return": 22.68
+      "cumulative_return": 20.45
     },
     {
       "date": "2026-04-13",
-      "cumulative_return": 26.66
+      "cumulative_return": 24.43
     },
     {
       "date": "2026-04-16",
-      "cumulative_return": 21.0
+      "cumulative_return": 18.77
     },
     {
       "date": "2026-04-17",
-      "cumulative_return": 23.56
+      "cumulative_return": 21.33
     },
     {
       "date": "2026-04-20",
-      "cumulative_return": 18.62
+      "cumulative_return": 16.39
     },
     {
       "date": "2026-04-21",
-      "cumulative_return": 10.88
+      "cumulative_return": 8.65
     },
     {
       "date": "2026-04-22",
-      "cumulative_return": 13.63
+      "cumulative_return": 11.4
     },
     {
       "date": "2026-04-23",
-      "cumulative_return": 7.73
+      "cumulative_return": 5.5
     },
     {
       "date": "2026-04-27",
-      "cumulative_return": 14.23
+      "cumulative_return": 12.0
     },
     {
       "date": "2026-04-28",
-      "cumulative_return": 15.93
+      "cumulative_return": 13.7
     },
     {
       "date": "2026-04-29",
-      "cumulative_return": 7.33
+      "cumulative_return": 5.1
     },
     {
       "date": "2026-04-30",
-      "cumulative_return": -1.19
+      "cumulative_return": -3.42
     },
     {
       "date": "2026-05-01",
-      "cumulative_return": -2.55
+      "cumulative_return": -4.78
     },
     {
       "date": "2026-05-04",
-      "cumulative_return": 0.12
+      "cumulative_return": -2.11
     },
     {
       "date": "2026-05-06",
-      "cumulative_return": -5.91
+      "cumulative_return": -8.14
     },
     {
       "date": "2026-05-07",
-      "cumulative_return": -22.6
+      "cumulative_return": -24.83
     },
     {
       "date": "2026-05-11",
-      "cumulative_return": -20.21
+      "cumulative_return": -22.44
+    },
+    {
+      "date": "2026-05-13",
+      "cumulative_return": -25.18
+    },
+    {
+      "date": "2026-05-14",
+      "cumulative_return": -30.62
+    },
+    {
+      "date": "2026-05-15",
+      "cumulative_return": -27.97
+    },
+    {
+      "date": "2026-05-29",
+      "cumulative_return": -33.54
     }
   ]
 }
