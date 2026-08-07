@@ -116,6 +116,38 @@
     "return_pct": null
   },
   {
+    "id": "2026-08-07_WYNN_Long-term",
+    "date": "2026-08-07",
+    "ticker": "WYNN",
+    "method": "Long-term",
+    "entry_price": 102.54,
+    "target_price": 134.07,
+    "stop_loss": 94.34,
+    "score": 74.0,
+    "holding_period_days": 63,
+    "holding_period_raw": "1-3개월 (추세 추종 전략)",
+    "rsi": 68.9,
+    "adx": 32.9,
+    "kalman_predicted_price": 134.07,
+    "score_breakdown": {
+      "rsi_score": 3,
+      "macd_score": 11,
+      "bollinger_score": 0,
+      "volume_score": 0,
+      "adx_score": 15.0,
+      "relative_strength_score": 8,
+      "week52_score": 8.0,
+      "kalman_score": 8.0,
+      "obv_score": 8.0,
+      "stochastic_score": 5.0,
+      "squeeze_score": 8.0
+    },
+    "outcome": "pending",
+    "exit_price": null,
+    "exit_date": null,
+    "return_pct": null
+  },
+  {
     "id": "2026-08-05_FOX_Long-term",
     "date": "2026-08-05",
     "ticker": "FOX",
