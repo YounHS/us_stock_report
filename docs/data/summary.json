@@ -1,17 +1,17 @@
 {
-  "generated_at": "2026-08-07 22:21:35",
-  "total_recommendations": 215,
-  "pending_count": 184,
-  "evaluated_count": 31,
+  "generated_at": "2026-08-10 22:22:27",
+  "total_recommendations": 211,
+  "pending_count": 179,
+  "evaluated_count": 32,
   "overall": {
-    "count": 31,
+    "count": 32,
     "win_count": 20,
-    "loss_count": 11,
-    "win_rate": 64.5,
+    "loss_count": 12,
+    "win_rate": 62.5,
     "avg_return": NaN,
     "best_return": 12.51,
-    "worst_return": -11.17,
-    "profit_factor": 1.27,
+    "worst_return": -12.71,
+    "profit_factor": 1.11,
     "total_return": NaN,
     "win_streak": 5,
     "loss_streak": 4
@@ -31,15 +31,15 @@
       "loss_streak": 1
     },
     "Legacy": {
-      "count": 30,
+      "count": 31,
       "win_count": 20,
-      "loss_count": 10,
-      "win_rate": 66.7,
-      "avg_return": 0.66,
+      "loss_count": 11,
+      "win_rate": 64.5,
+      "avg_return": 0.31,
       "best_return": 12.51,
-      "worst_return": -11.17,
-      "profit_factor": 1.27,
-      "total_return": 19.88,
+      "worst_return": -12.71,
+      "profit_factor": 1.11,
+      "total_return": 9.75,
       "win_streak": 5,
       "loss_streak": 3
     }
@@ -49,90 +49,86 @@
     "win_count": 3,
     "loss_count": 0,
     "win_rate": 100.0,
-    "avg_return": 4.16,
+    "avg_return": 4.15,
     "best_return": 6.32,
     "worst_return": 1.17,
     "profit_factor": 999.99,
-    "total_return": 12.47,
+    "total_return": 12.46,
     "win_streak": 3,
     "loss_streak": 0
   },
   "cumulative_returns": [
     {
-      "date": "2026-05-11",
-      "cumulative_return": 2.39
-    },
-    {
       "date": "2026-05-13",
-      "cumulative_return": -0.35
+      "cumulative_return": -2.74
     },
     {
       "date": "2026-05-14",
-      "cumulative_return": -5.79
+      "cumulative_return": -8.18
     },
     {
       "date": "2026-05-15",
-      "cumulative_return": -3.14
+      "cumulative_return": -5.53
     },
     {
       "date": "2026-05-18",
-      "cumulative_return": 1.96
+      "cumulative_return": -0.43
     },
     {
       "date": "2026-05-19",
-      "cumulative_return": 4.14
+      "cumulative_return": 1.75
     },
     {
       "date": "2026-05-21",
-      "cumulative_return": -3.96
+      "cumulative_return": -6.35
     },
     {
       "date": "2026-05-22",
-      "cumulative_return": -1.38
+      "cumulative_return": -3.77
     },
     {
       "date": "2026-05-26",
-      "cumulative_return": -0.49
+      "cumulative_return": -2.88
     },
     {
       "date": "2026-05-28",
-      "cumulative_return": 2.24
+      "cumulative_return": -0.15
     },
     {
       "date": "2026-05-29",
-      "cumulative_return": -3.33
+      "cumulative_return": -5.72
     },
     {
       "date": "2026-06-03",
-      "cumulative_return": -12.24
+      "cumulative_return": -14.63
     },
     {
       "date": "2026-06-05",
-      "cumulative_return": -10.1
+      "cumulative_return": -12.49
     },
     {
       "date": "2026-06-09",
-      "cumulative_return": -2.3
+      "cumulative_return": -4.69
     },
     {
       "date": "2026-06-10",
-      "cumulative_return": 8.9
+      "cumulative_return": 6.51
     },
     {
       "date": "2026-06-11",
-      "cumulative_return": 21.41
+      "cumulative_return": 19.02
     },
     {
       "date": "2026-06-12",
-      "cumulative_return": 13.42
+      "cumulative_return": 11.03
     },
     {
       "date": "2026-06-15",
-      "cumulative_return": 6.13
+      "cumulative_return": 3.74
     },
     {
       "date": "2026-06-17",
-      "cumulative_return": -0.01
+      "cumulative_return": -2.4
     },
     {
       "date": "2026-06-19",
@@ -171,6 +167,10 @@
       "cumulative_return": NaN
     },
     {
+      "date": "2026-07-08",
+      "cumulative_return": NaN
+    },
+    {
       "date": "2026-07-09",
       "cumulative_return": NaN
     },
@@ -180,6 +180,10 @@
     },
     {
       "date": "2026-07-17",
+      "cumulative_return": NaN
+    },
+    {
+      "date": "2026-07-24",
       "cumulative_return": NaN
     }
   ]
