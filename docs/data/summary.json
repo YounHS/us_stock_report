@@ -1,17 +1,17 @@
 {
-  "generated_at": "2026-08-18 22:02:00",
-  "total_recommendations": 210,
-  "pending_count": 178,
-  "evaluated_count": 32,
+  "generated_at": "2026-08-19 22:09:34",
+  "total_recommendations": 216,
+  "pending_count": 183,
+  "evaluated_count": 33,
   "overall": {
-    "count": 32,
+    "count": 33,
     "win_count": 19,
-    "loss_count": 13,
-    "win_rate": 59.4,
+    "loss_count": 14,
+    "win_rate": 57.6,
     "avg_return": NaN,
     "best_return": 12.51,
     "worst_return": -12.71,
-    "profit_factor": 1.09,
+    "profit_factor": 1.07,
     "total_return": NaN,
     "win_streak": 5,
     "loss_streak": 4
@@ -31,31 +31,31 @@
       "loss_streak": 1
     },
     "Legacy": {
-      "count": 30,
+      "count": 31,
       "win_count": 19,
-      "loss_count": 11,
-      "win_rate": 63.3,
-      "avg_return": 0.31,
+      "loss_count": 12,
+      "win_rate": 61.3,
+      "avg_return": 0.25,
       "best_return": 12.51,
       "worst_return": -12.71,
-      "profit_factor": 1.1,
-      "total_return": 9.23,
+      "profit_factor": 1.08,
+      "total_return": 7.72,
       "win_streak": 5,
       "loss_streak": 3
     }
   },
   "rolling_30d": {
-    "count": 4,
+    "count": 5,
     "win_count": 2,
-    "loss_count": 2,
-    "win_rate": 50.0,
-    "avg_return": 2.81,
+    "loss_count": 3,
+    "win_rate": 40.0,
+    "avg_return": 1.95,
     "best_return": 9.88,
     "worst_return": -2.72,
-    "profit_factor": 4.14,
-    "total_return": 11.26,
+    "profit_factor": 2.91,
+    "total_return": 9.75,
     "win_streak": 2,
-    "loss_streak": 2
+    "loss_streak": 3
   },
   "cumulative_returns": [
     {
@@ -180,6 +180,10 @@
     },
     {
       "date": "2026-07-29",
+      "cumulative_return": NaN
+    },
+    {
+      "date": "2026-08-03",
       "cumulative_return": NaN
     },
     {
