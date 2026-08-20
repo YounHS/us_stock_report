@@ -1,5 +1,34 @@
 [
   {
+    "id": "2026-08-20_XLV_Opening Surge",
+    "date": "2026-08-20",
+    "ticker": "XLV",
+    "method": "Opening Surge",
+    "entry_price": 174.83,
+    "target_price": 177.82,
+    "stop_loss": 173.34,
+    "score": 62.0,
+    "holding_period_days": 1,
+    "holding_period_raw": "30분~1시간",
+    "rsi": 84.2,
+    "adx": 32.3,
+    "kalman_predicted_price": null,
+    "score_breakdown": {
+      "pm_momentum": 6,
+      "news_catalyst": 1,
+      "volume_surge": 1,
+      "gap_setup": 22,
+      "squeeze_release": 12.5,
+      "relative_strength": 7,
+      "adx": 12.5,
+      "stochastic": 0
+    },
+    "outcome": "pending",
+    "exit_price": null,
+    "exit_date": null,
+    "return_pct": null
+  },
+  {
     "id": "2026-08-19_XLE_Opening Surge",
     "date": "2026-08-19",
     "ticker": "XLE",
@@ -6044,26 +6073,6 @@
     "exit_price": null,
     "exit_date": null,
     "return_pct": null
-  },
-  {
-    "id": "2026-05-21_HII_Legacy",
-    "date": "2026-05-21",
-    "ticker": "HII",
-    "method": "Legacy",
-    "entry_price": 317.55,
-    "target_price": 325.48,
-    "stop_loss": 291.82,
-    "score": null,
-    "holding_period_days": 20,
-    "holding_period_raw": "2-4주 (복수 신호로 신뢰도 높음)",
-    "rsi": 29.7,
-    "adx": 42.8,
-    "kalman_predicted_price": 313.55,
-    "score_breakdown": null,
-    "outcome": "loss",
-    "exit_price": 291.82,
-    "exit_date": "2026-06-01",
-    "return_pct": -8.1
   },
   {
     "id": "2026-05-21_NOW_Long-term",
