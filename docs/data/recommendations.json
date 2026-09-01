@@ -116,6 +116,38 @@
     "return_pct": null
   },
   {
+    "id": "2026-09-01_SPGI_Long-term",
+    "date": "2026-09-01",
+    "ticker": "SPGI",
+    "method": "Long-term",
+    "entry_price": 440.21,
+    "target_price": 477.56,
+    "stop_loss": 404.99,
+    "score": 86.0,
+    "holding_period_days": 63,
+    "holding_period_raw": "1-3개월 (추세 추종 전략)",
+    "rsi": 64.2,
+    "adx": 33.0,
+    "kalman_predicted_price": 477.56,
+    "score_breakdown": {
+      "rsi_score": 5,
+      "macd_score": 11,
+      "bollinger_score": 3,
+      "volume_score": 8.0,
+      "adx_score": 15.0,
+      "relative_strength_score": 12.0,
+      "week52_score": 8.0,
+      "kalman_score": 3,
+      "obv_score": 8.0,
+      "stochastic_score": 5.0,
+      "squeeze_score": 8.0
+    },
+    "outcome": "pending",
+    "exit_price": null,
+    "exit_date": null,
+    "return_pct": null
+  },
+  {
     "id": "2026-08-29_HOOD_Long-term",
     "date": "2026-08-29",
     "ticker": "HOOD",
