@@ -1,17 +1,17 @@
 {
-  "generated_at": "2026-09-01 23:36:28",
-  "total_recommendations": 215,
-  "pending_count": 177,
-  "evaluated_count": 38,
+  "generated_at": "2026-09-02 23:37:32",
+  "total_recommendations": 217,
+  "pending_count": 180,
+  "evaluated_count": 37,
   "overall": {
-    "count": 38,
+    "count": 37,
     "win_count": 20,
-    "loss_count": 18,
-    "win_rate": 52.6,
+    "loss_count": 17,
+    "win_rate": 54.1,
     "avg_return": NaN,
     "best_return": 12.51,
     "worst_return": -12.71,
-    "profit_factor": 1.07,
+    "profit_factor": 1.18,
     "total_return": NaN,
     "win_streak": 5,
     "loss_streak": 4
@@ -31,15 +31,15 @@
       "loss_streak": 1
     },
     "Legacy": {
-      "count": 32,
+      "count": 31,
       "win_count": 19,
-      "loss_count": 13,
-      "win_rate": 59.4,
-      "avg_return": 0.23,
+      "loss_count": 12,
+      "win_rate": 61.3,
+      "avg_return": 0.53,
       "best_return": 12.51,
       "worst_return": -12.71,
-      "profit_factor": 1.08,
-      "total_return": 7.4,
+      "profit_factor": 1.19,
+      "total_return": 16.31,
       "win_streak": 5,
       "loss_streak": 3
     }
@@ -59,36 +59,32 @@
   },
   "cumulative_returns": [
     {
-      "date": "2026-06-03",
-      "cumulative_return": -8.91
-    },
-    {
       "date": "2026-06-05",
-      "cumulative_return": -6.77
+      "cumulative_return": 2.14
     },
     {
       "date": "2026-06-09",
-      "cumulative_return": 1.03
+      "cumulative_return": 9.94
     },
     {
       "date": "2026-06-10",
-      "cumulative_return": 12.23
+      "cumulative_return": 21.14
     },
     {
       "date": "2026-06-11",
-      "cumulative_return": 24.74
+      "cumulative_return": 33.65
     },
     {
       "date": "2026-06-12",
-      "cumulative_return": 16.75
+      "cumulative_return": 25.66
     },
     {
       "date": "2026-06-15",
-      "cumulative_return": 9.46
+      "cumulative_return": 18.37
     },
     {
       "date": "2026-06-17",
-      "cumulative_return": 3.32
+      "cumulative_return": 12.23
     },
     {
       "date": "2026-06-19",
