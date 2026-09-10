@@ -1,17 +1,17 @@
 {
-  "generated_at": "2026-09-09 23:33:39",
-  "total_recommendations": 212,
-  "pending_count": 177,
+  "generated_at": "2026-09-10 23:26:53",
+  "total_recommendations": 213,
+  "pending_count": 178,
   "evaluated_count": 35,
   "overall": {
     "count": 35,
-    "win_count": 17,
-    "loss_count": 18,
-    "win_rate": 48.6,
+    "win_count": 16,
+    "loss_count": 19,
+    "win_rate": 45.7,
     "avg_return": NaN,
-    "best_return": 12.51,
+    "best_return": 9.88,
     "worst_return": -12.71,
-    "profit_factor": 0.89,
+    "profit_factor": 0.72,
     "total_return": NaN,
     "win_streak": 5,
     "loss_streak": 5
@@ -32,16 +32,16 @@
     },
     "Legacy": {
       "count": 29,
-      "win_count": 16,
-      "loss_count": 13,
-      "win_rate": 55.2,
-      "avg_return": -0.35,
-      "best_return": 12.51,
+      "win_count": 15,
+      "loss_count": 14,
+      "win_rate": 51.7,
+      "avg_return": -0.95,
+      "best_return": 9.88,
       "worst_return": -12.71,
-      "profit_factor": 0.89,
-      "total_return": -10.13,
+      "profit_factor": 0.72,
+      "total_return": -27.51,
       "win_streak": 5,
-      "loss_streak": 3
+      "loss_streak": 4
     }
   },
   "rolling_30d": {
@@ -49,30 +49,26 @@
     "win_count": 1,
     "loss_count": 6,
     "win_rate": 14.3,
-    "avg_return": -1.4,
+    "avg_return": -1.54,
     "best_return": 1.63,
     "worst_return": -5.3,
-    "profit_factor": 0.14,
-    "total_return": -9.81,
+    "profit_factor": 0.13,
+    "total_return": -10.77,
     "win_streak": 1,
-    "loss_streak": 4
+    "loss_streak": 3
   },
   "cumulative_returns": [
     {
-      "date": "2026-06-11",
-      "cumulative_return": 12.51
-    },
-    {
       "date": "2026-06-12",
-      "cumulative_return": 4.52
+      "cumulative_return": -7.99
     },
     {
       "date": "2026-06-15",
-      "cumulative_return": -2.77
+      "cumulative_return": -15.28
     },
     {
       "date": "2026-06-17",
-      "cumulative_return": -8.91
+      "cumulative_return": -21.42
     },
     {
       "date": "2026-06-19",
@@ -192,6 +188,10 @@
     },
     {
       "date": "2026-08-24",
+      "cumulative_return": NaN
+    },
+    {
+      "date": "2026-08-25",
       "cumulative_return": NaN
     }
   ]
