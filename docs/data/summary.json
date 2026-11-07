@@ -1,26 +1,26 @@
 {
-  "generated_at": "2026-11-06 01:51:17",
-  "total_recommendations": 223,
-  "pending_count": 179,
-  "evaluated_count": 44,
+  "generated_at": "2026-11-07 01:19:01",
+  "total_recommendations": 225,
+  "pending_count": 180,
+  "evaluated_count": 45,
   "overall": {
-    "count": 44,
+    "count": 45,
     "win_count": 7,
-    "loss_count": 37,
-    "win_rate": 15.9,
+    "loss_count": 38,
+    "win_rate": 15.6,
     "avg_return": NaN,
-    "best_return": 5.06,
-    "worst_return": -10.76,
+    "best_return": NaN,
+    "worst_return": NaN,
     "profit_factor": 0.24,
     "total_return": NaN,
     "win_streak": 2,
-    "loss_streak": 18
+    "loss_streak": 19
   },
   "by_method": {
     "Enhanced": {
-      "count": 16,
+      "count": 17,
       "win_count": 0,
-      "loss_count": 16,
+      "loss_count": 17,
       "win_rate": 0.0,
       "avg_return": NaN,
       "best_return": NaN,
@@ -28,7 +28,7 @@
       "profit_factor": 0,
       "total_return": NaN,
       "win_streak": 0,
-      "loss_streak": 16
+      "loss_streak": 17
     },
     "Legacy": {
       "count": 23,
@@ -50,8 +50,8 @@
     "loss_count": 6,
     "win_rate": 0.0,
     "avg_return": NaN,
-    "best_return": -10.03,
-    "worst_return": -10.03,
+    "best_return": NaN,
+    "worst_return": NaN,
     "profit_factor": 0.0,
     "total_return": NaN,
     "win_streak": 0,

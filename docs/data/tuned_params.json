@@ -1,5 +1,5 @@
 {
-  "last_updated": "2026-11-06",
+  "last_updated": "2026-11-07",
   "Opening Surge": {
     "weights": {
       "surge_weight_pm_momentum": 8.3,
@@ -38,7 +38,7 @@
       "weight_squeeze": 10.0
     },
     "min_score": 35,
-    "samples_used": 16,
+    "samples_used": 17,
     "effectiveness": {
       "rsi_score": NaN,
       "volume_score": NaN,
