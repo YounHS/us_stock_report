@@ -1,26 +1,26 @@
 {
-  "generated_at": "2026-11-13 02:10:54",
-  "total_recommendations": 224,
-  "pending_count": 182,
-  "evaluated_count": 42,
+  "generated_at": "2026-11-14 01:52:49",
+  "total_recommendations": 227,
+  "pending_count": 184,
+  "evaluated_count": 43,
   "overall": {
-    "count": 42,
+    "count": 43,
     "win_count": 5,
-    "loss_count": 37,
-    "win_rate": 11.9,
+    "loss_count": 38,
+    "win_rate": 11.6,
     "avg_return": NaN,
     "best_return": NaN,
     "worst_return": NaN,
     "profit_factor": 0.21,
     "total_return": NaN,
     "win_streak": 2,
-    "loss_streak": 22
+    "loss_streak": 23
   },
   "by_method": {
     "Enhanced": {
-      "count": 20,
+      "count": 21,
       "win_count": 0,
-      "loss_count": 20,
+      "loss_count": 21,
       "win_rate": 0.0,
       "avg_return": NaN,
       "best_return": NaN,
@@ -28,7 +28,7 @@
       "profit_factor": 0,
       "total_return": NaN,
       "win_streak": 0,
-      "loss_streak": 20
+      "loss_streak": 21
     },
     "Legacy": {
       "count": 18,
@@ -200,6 +200,10 @@
     },
     {
       "date": "2026-10-21",
+      "cumulative_return": NaN
+    },
+    {
+      "date": "2026-10-22",
       "cumulative_return": NaN
     },
     {
