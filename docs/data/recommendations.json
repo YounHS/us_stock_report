@@ -1705,10 +1705,10 @@
       "stochastic_score": 0,
       "squeeze_score": 0
     },
-    "outcome": "pending",
-    "exit_price": null,
-    "exit_date": null,
-    "return_pct": null
+    "outcome": "expired_loss",
+    "exit_price": 232.83,
+    "exit_date": "2026-11-25",
+    "return_pct": NaN
   },
   {
     "id": "2026-11-04_SYY_Long-term",
@@ -6842,10 +6842,10 @@
       "stochastic_score": 5.0,
       "squeeze_score": 5
     },
-    "outcome": "pending",
-    "exit_price": null,
-    "exit_date": null,
-    "return_pct": null
+    "outcome": "expired_loss",
+    "exit_price": 345.82,
+    "exit_date": "2026-11-20",
+    "return_pct": -0.9
   },
   {
     "id": "2026-08-24_DOW_Long-term",
@@ -6874,9 +6874,9 @@
       "stochastic_score": 5.0,
       "squeeze_score": 5
     },
-    "outcome": "pending",
-    "exit_price": null,
-    "exit_date": null,
-    "return_pct": null
+    "outcome": "loss",
+    "exit_price": 28.92,
+    "exit_date": "2026-09-11",
+    "return_pct": -8.02
   }
 ]
